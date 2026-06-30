@@ -1,0 +1,12 @@
+site_name: Predictive Maintenance AI
+site_description: Documentation for the Industrial Predictive Maintenance AI Platform
+theme:
+  name: material
+  palette:
+    primary: indigo
+    accent: deep orange
+nav:
+  - Home: index.md
+  - Architecture: architecture.md
+  - API Reference: api.md
+  - Models & XAI: models.md

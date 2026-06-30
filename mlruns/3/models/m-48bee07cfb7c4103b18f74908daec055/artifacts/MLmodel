@@ -1,0 +1,23 @@
+artifact_path: /Users/nithyaprakash/.gemini/antigravity/scratch/PredictiveMaintenanceAI/mlruns/3/models/m-48bee07cfb7c4103b18f74908daec055/artifacts
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.skops
+    predict_fn: predict
+    python_version: 3.14.6
+  sklearn:
+    code: null
+    pickled_model: model.skops
+    serialization_format: skops
+    sklearn_version: 1.9.0
+    skops_trusted_types: null
+mlflow_version: 3.14.0
+model_id: m-48bee07cfb7c4103b18f74908daec055
+model_size_bytes: 2801815
+model_uuid: m-48bee07cfb7c4103b18f74908daec055
+prompts: null
+run_id: ddd1e40f93e448e7800588dbbba900b7
+utc_time_created: '2026-06-27 19:15:36.768689'

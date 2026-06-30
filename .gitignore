@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+__pycache__/
+*.pyc
+.DS_Store
+*.log
+data/
+postgres-data/
+grafana-data/
+prometheus-data/
+node_modules/
