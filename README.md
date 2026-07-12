@@ -1,4 +1,4 @@
-# 🏭 Manufacturing Predictive Maintenance AI
+# Manufacturing Predictive Maintenance AI
 
 **End-to-end AI platform capable of predicting industrial machine failures before they happen, estimating Remaining Useful Life (RUL), detecting anomalies in sensor streams, explaining predictions via SHAP, and recommending maintenance actions.**
 
@@ -6,7 +6,7 @@
 
 ---
 
-## 🚀 Features
+## Features
 
 - **Predictive Maintenance Engine:** Estimates probability of failure within the next 30 cycles using `RandomForestClassifier`.
 - **Remaining Useful Life (RUL):** Forecasts exactly how many cycles a machine has left using `RandomForestRegressor`.
@@ -22,7 +22,7 @@
 
 ---
 
-## 📂 Repository Structure
+## Repository Structure
 
 ```
 PredictiveMaintenanceAI/
@@ -39,7 +39,7 @@ PredictiveMaintenanceAI/
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 - **Machine Learning:** `scikit-learn`, `pandas`, `numpy`, `SHAP`
 - **MLOps:** `MLflow`, `Optuna`
@@ -50,7 +50,7 @@ PredictiveMaintenanceAI/
 
 ---
 
-## 🚦 Getting Started
+## Getting Started
 
 ### 1. Generate the Dataset
 Since industrial data is proprietary, we include a high-fidelity synthetic data generator that simulates multi-sensor degradation over time.
@@ -78,7 +78,7 @@ docker-compose up --build
 
 ---
 
-## 📊 XAI & Maintenance Recommendations
+## XAI & Maintenance Recommendations
 
 The API returns not just predictions, but explanations:
 ```json
