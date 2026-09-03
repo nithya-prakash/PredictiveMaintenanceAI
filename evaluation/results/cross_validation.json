@@ -1,0 +1,44 @@
+{
+    "machine_wise_cv_5_fold": {
+        "roc_auc_mean": 0.9984759215839345,
+        "roc_auc_std": 0.00033862839511811775,
+        "pr_auc_mean": 0.9900267741386326,
+        "pr_auc_std": 0.0024929830631988583,
+        "fold_details": [
+            {
+                "fold": 1,
+                "roc_auc": 0.99878902586446,
+                "pr_auc": 0.9922875654609615,
+                "f1": 0.9115646258503401
+            },
+            {
+                "fold": 2,
+                "roc_auc": 0.997899650743888,
+                "pr_auc": 0.9856785918465951,
+                "f1": 0.9094292803970223
+            },
+            {
+                "fold": 3,
+                "roc_auc": 0.9982854965709931,
+                "pr_auc": 0.9888149808120523,
+                "f1": 0.9220125786163522
+            },
+            {
+                "fold": 4,
+                "roc_auc": 0.998657499920703,
+                "pr_auc": 0.9914059919700483,
+                "f1": 0.9181761399125546
+            },
+            {
+                "fold": 5,
+                "roc_auc": 0.9987479348196285,
+                "pr_auc": 0.9919467406035054,
+                "f1": 0.9183800623052959
+            }
+        ]
+    },
+    "temporal_split": {
+        "status": "NOT APPLICABLE",
+        "reason": "The synthetic dataset generates machines independently without a global timestamp column tracking chronological factory deployment. Hence, chronological TimeSeriesSplit across machines is not physically meaningful for this specific synthetic generation logic."
+    }
+}
