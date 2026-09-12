@@ -55,5 +55,11 @@ class PredictorService:
         features = self._prepare_data([data])
         pred = self.model_anomaly.predict(features)[0]
         return pred == -1 # IsolationForest returns -1 for anomalies
-        
+
+    def get_anomaly_score(self, data):
+        # Continuous IsolationForest score: lower (more negative) = more anomalous.
+        features = self._prepare_data([data])
+        return float(self.model_anomaly.decision_function(features)[0])
+
+
 predictor_service = PredictorService()

@@ -1,10 +1,15 @@
 from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
+from sqlalchemy.orm import Session
 
 from backend.schemas.predict import SensorData, RULResponse, FailureResponse, AnomalyResponse, ExplanationResponse, MaintenanceRecommendation
 from backend.services.predictor import predictor_service
 from backend.services.xai import xai_service
+from backend.core.database import engine, get_db
+from backend.models.machine import Base, Machine, SensorReading, Prediction
+
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="Predictive Maintenance AI",
@@ -58,13 +63,14 @@ def explain_prediction(data: SensorData):
     )
 
 @app.post("/api/v1/recommend-maintenance", response_model=MaintenanceRecommendation)
-def recommend_maintenance(data: SensorData):
+def recommend_maintenance(data: SensorData, db: Session = Depends(get_db)):
     prob = predictor_service.predict_failure(data)
     rul = predictor_service.predict_rul(data)
-    
+    anomaly_score = predictor_service.get_anomaly_score(data)
+
     explanation = xai_service.explain_failure(data)
     top_feature = explanation.get("top_contributor", "Unknown")
-    
+
     if prob > 0.8:
         urgency = "HIGH"
         action = f"Immediate inspection required. High probability of imminent failure."
@@ -74,9 +80,36 @@ def recommend_maintenance(data: SensorData):
     else:
         urgency = "LOW"
         action = "Machine operating normally. Continue standard monitoring."
-        
+
     reason = f"Driven primarily by anomalous '{top_feature}' readings." if urgency != "LOW" else "All readings nominal."
-    
+
+    # Get-or-create the machine, then log the reading and the resulting
+    # recommendation -- this is the only endpoint that persists to Postgres.
+    machine = db.query(Machine).filter(Machine.id == data.machine_id).first()
+    if not machine:
+        machine = Machine(id=data.machine_id, name=f"Machine-{data.machine_id}")
+        db.add(machine)
+        db.flush()
+
+    db.add(SensorReading(
+        machine_id=data.machine_id,
+        temperature=data.temperature,
+        pressure=data.pressure,
+        vibration=data.vibration,
+        rpm=data.rpm,
+        voltage=data.voltage,
+        current=data.current,
+        oil_quality=data.oil_quality,
+    ))
+    db.add(Prediction(
+        machine_id=data.machine_id,
+        predicted_rul=rul,
+        failure_probability=prob,
+        anomaly_score=anomaly_score,
+        maintenance_recommended=urgency != "LOW",
+    ))
+    db.commit()
+
     return MaintenanceRecommendation(
         machine_id=data.machine_id,
         action=action,

@@ -6,10 +6,9 @@ The platform is a small set of Docker Compose services (`docker-compose.yml`):
 
 1. **FastAPI Backend** (`backend/`): Serves REST endpoints for RUL, failure probability, anomaly detection, SHAP explanations, and maintenance recommendations. Loads model artifacts from `models/` at startup.
 2. **Streamlit Dashboard** (`dashboard/`): Lets an operator adjust sensor telemetry and view diagnostics, calling the FastAPI backend over REST.
-3. **PostgreSQL**: Runs as a service and ORM models exist for it (`backend/models/machine.py`), but the API does not currently persist predictions to it — the models are defined but not yet wired into the request handlers.
-4. **Redis**: Runs as a service; nothing in the application code currently reads or writes to it.
-5. **Prometheus / Grafana**: Prometheus scrapes `/metrics` on the FastAPI backend (via `prometheus-fastapi-instrumentator`); Grafana is available for dashboards on top of that data.
-6. **MLflow**: Used by the training scripts (`ml/training/`) for experiment tracking, not by the serving path.
+3. **PostgreSQL**: `POST /api/v1/recommend-maintenance` (via `backend/models/machine.py`'s ORM models) get-or-creates the `Machine` row and logs the input `SensorReading` and the resulting `Prediction`. The other endpoints (`predict-rul`, `predict-failure`, `anomaly`, `explain`) are read-only and don't write to the database.
+4. **Prometheus / Grafana**: Prometheus scrapes `/metrics` on the FastAPI backend (via `prometheus-fastapi-instrumentator`); Grafana is available for dashboards on top of that data.
+5. **MLflow**: Used by the training scripts (`ml/training/`) for experiment tracking, not by the serving path.
 
 There is no message broker or background worker in this system — sensor data is sent directly to the FastAPI backend in each request; it isn't streamed through a queue.
 
@@ -20,6 +19,7 @@ graph TD
     A[Streamlit Dashboard] -->|REST| B[FastAPI Backend]
     B -->|joblib.load| C[models/*.pkl]
     B -->|SHAP| D[Explainability]
+    B -->|log reading + recommendation| I[(PostgreSQL)]
     E[Training Scripts] -->|joblib.dump| C
     E -->|Track experiments| F[MLflow]
     B -->|/metrics| G[Prometheus]

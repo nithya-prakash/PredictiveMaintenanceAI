@@ -25,7 +25,7 @@
 - **Microservices Architecture:** 
   - **FastAPI** backend for high-performance inference (p99 latency < 11ms).
   - **Streamlit** dashboard for monitoring.
-  - **PostgreSQL / Redis** for storage and caching.
+  - **PostgreSQL** logs each sensor reading and the resulting recommendation (see `/api/v1/recommend-maintenance`).
   - **Prometheus / Grafana** for monitoring system health.
 - **MLOps Integration:** `MLflow` for experiment tracking, model registry, and metrics logging. `Optuna` for automated hyperparameter optimization. `Docker Compose` for seamless deployment.
 
@@ -59,7 +59,7 @@ PredictiveMaintenanceAI/
 - **Machine Learning:** `scikit-learn`, `pandas`, `numpy`, `SHAP`
 - **MLOps:** `MLflow`, `Optuna`
 - **Backend:** `FastAPI`, `SQLAlchemy`, `Pydantic`, `Uvicorn`
-- **Database:** `PostgreSQL`, `Redis`
+- **Database:** `PostgreSQL`
 - **UI:** `Streamlit`, `Plotly`
 - **DevOps:** `Docker`, `Prometheus`, `Grafana`
 

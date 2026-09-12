@@ -63,7 +63,7 @@ Returns SHAP feature attributions for the failure prediction.
 
 ## `POST /api/v1/recommend-maintenance`
 
-Combines the RUL, failure, and explanation calls into a single actionable recommendation.
+Combines the RUL, failure, and explanation calls into a single actionable recommendation. This is the only endpoint that writes to PostgreSQL — it get-or-creates the `Machine` row and logs the input `SensorReading` and the resulting `Prediction`.
 
 ```json
 {
