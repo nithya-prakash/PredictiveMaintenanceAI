@@ -1,0 +1,15 @@
+{
+    "model_only_classification": {
+        "mean_ms": 0.2930100100093114,
+        "p50_ms": 0.19531199995981297,
+        "p95_ms": 0.30864229988765146,
+        "p99_ms": 0.6061674196007936
+    },
+    "full_pipeline_classification": {
+        "mean_ms": 16.707959999966988,
+        "p50_ms": 16.17560449994926,
+        "p95_ms": 18.49614345028385,
+        "p99_ms": 21.26076342035971
+    },
+    "benchmark_context": "Local execution, 100 sequential requests, 10 warmup calls. Simulates preprocessing + scaling + inference overhead."
+}

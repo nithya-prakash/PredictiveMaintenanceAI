@@ -1,0 +1,50 @@
+{
+    "xai_metrics": {
+        "explained_algorithm": "LogisticRegression",
+        "top_5_global_features": [
+            "vibration_roll_mean_15",
+            "current_roll_mean_15",
+            "temperature_roll_mean_15",
+            "oil_quality_roll_std_5",
+            "voltage_roll_mean_15"
+        ],
+        "feature_importance_scores": {
+            "vibration_roll_mean_15": 12.174719138923981,
+            "current_roll_mean_15": 6.657905531782568,
+            "temperature_roll_mean_15": 5.581945369568423,
+            "oil_quality_roll_std_5": 4.342065861959515,
+            "voltage_roll_mean_15": 4.166490565823164,
+            "vibration_roll_mean_5": 3.9737848248920056,
+            "oil_quality_roll_mean_15": 3.142066384569637,
+            "oil_quality_roll_mean_5": 3.132422148743995,
+            "oil_quality": 3.1130301214592935,
+            "rpm_roll_mean_15": 1.9756350910369858,
+            "pressure_roll_mean_15": 1.8812996582934267,
+            "oil_quality_roll_std_15": 1.5412273082198689,
+            "current_roll_mean_5": 0.7817704773011904,
+            "rpm_roll_mean_5": 0.2747039622025785,
+            "current_roll_std_15": 0.24223180056339327,
+            "pressure_roll_mean_5": 0.20366878736176974,
+            "rpm_roll_std_5": 0.1968486541176819,
+            "voltage": 0.17995519390167772,
+            "vibration_roll_std_5": 0.16653941720972631,
+            "temperature_roll_std_15": 0.14363420963889914,
+            "vibration": 0.14150548417898345,
+            "rpm_roll_std_15": 0.13526029225425248,
+            "voltage_roll_std_5": 0.13376964765169203,
+            "temperature": 0.1327854323290959,
+            "temperature_roll_std_5": 0.12183619289611011,
+            "current_roll_std_5": 0.1062179402632628,
+            "voltage_roll_std_15": 0.10581085682368874,
+            "voltage_roll_mean_5": 0.10557621241057757,
+            "pressure_roll_std_5": 0.09251865813932458,
+            "temperature_roll_mean_5": 0.07316608149970055,
+            "pressure": 0.05781848197953851,
+            "current": 0.05648577652709477,
+            "pressure_roll_std_15": 0.01690525777282342,
+            "vibration_roll_std_15": 0.00906287185360268,
+            "rpm": 0.0007071410321268422
+        },
+        "note": "Quantitative SHAP evaluation (e.g. fidelity/stability metrics) requires specialized perturbation testing which is beyond the current scope. These represent global feature attribution magnitudes on a test sample."
+    }
+}
