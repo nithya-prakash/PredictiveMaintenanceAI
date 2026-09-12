@@ -1,10 +1,19 @@
 site_name: Predictive Maintenance AI
 site_description: Documentation for the Industrial Predictive Maintenance AI Platform
+site_url: https://nithya-prakash.github.io/PredictiveMaintenanceAI/
+repo_url: https://github.com/nithya-prakash/PredictiveMaintenanceAI
+repo_name: nithya-prakash/PredictiveMaintenanceAI
 theme:
   name: material
   palette:
     primary: indigo
     accent: deep orange
+markdown_extensions:
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
 nav:
   - Home: index.md
   - Architecture: architecture.md
