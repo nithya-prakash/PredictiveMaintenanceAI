@@ -1,6 +1,7 @@
 # Manufacturing Predictive Maintenance AI
 
 [![CI](https://github.com/nithya-prakash/PredictiveMaintenanceAI/actions/workflows/ci.yml/badge.svg)](https://github.com/nithya-prakash/PredictiveMaintenanceAI/actions/workflows/ci.yml)
+[![Docs](https://github.com/nithya-prakash/PredictiveMaintenanceAI/actions/workflows/docs.yml/badge.svg)](https://nithya-prakash.github.io/PredictiveMaintenanceAI/)
 
 **End-to-end AI platform capable of predicting industrial machine failures before they happen, estimating Remaining Useful Life (RUL), detecting anomalies in sensor streams, explaining predictions via SHAP, and recommending maintenance actions.**
 
