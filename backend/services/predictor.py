@@ -7,17 +7,26 @@ class PredictorService:
         self.preprocessor = None
         self.model_rul = None
         self.model_classifier = None
+        self.classifier_algorithm = None
+        self.classifier_background = None
         self.model_anomaly = None
         self._load_models()
-        
+
     def _load_models(self):
         base_dir = "models"
         try:
             self.preprocessor = joblib.load(os.path.join(base_dir, "preprocessor.pkl"))
             self.model_rul = joblib.load(os.path.join(base_dir, "rf_rul.pkl"))
-            self.model_classifier = joblib.load(os.path.join(base_dir, "rf_classifier.pkl"))
+
+            classifier_artifact = joblib.load(os.path.join(base_dir, "classifier.pkl"))
+            # Whichever of the RandomForest/LogisticRegression candidates won on
+            # PR-AUC during training is what's saved here — see ml/training/train_classifier.py.
+            self.model_classifier = classifier_artifact["model"]
+            self.classifier_algorithm = classifier_artifact["algorithm"]
+            self.classifier_background = classifier_artifact.get("background_sample")
+
             self.model_anomaly = joblib.load(os.path.join(base_dir, "isolation_forest.pkl"))
-            print("Successfully loaded all models.")
+            print(f"Successfully loaded all models. Classifier: {self.classifier_algorithm}")
         except Exception as e:
             print(f"Error loading models: {e}")
             

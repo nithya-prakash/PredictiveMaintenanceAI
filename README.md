@@ -8,7 +8,7 @@
 
 ## Features
 
-- **Predictive Maintenance Engine:** Estimates probability of failure within the next 30 cycles using `RandomForestClassifier`.
+- **Predictive Maintenance Engine:** Estimates probability of failure within the next 30 cycles. A `LogisticRegression` baseline and a tuned `RandomForestClassifier` are both trained and benchmarked on held-out data by PR-AUC (the appropriate metric for this rare-event label); whichever actually scores higher is the one deployed — see [Model Selection](#model-selection) below.
 - **Remaining Useful Life (RUL):** Forecasts exactly how many cycles a machine has left using `RandomForestRegressor`.
 - **Anomaly Detection:** Identifies novel operating conditions and sensor drift via `IsolationForest`.
 - **Explainable AI (XAI):** Calculates SHAP feature importance to explain exactly *why* a machine is predicted to fail (e.g., "Driven primarily by anomalous vibration readings").
@@ -28,7 +28,7 @@
 PredictiveMaintenanceAI/
 ├── backend/                  # FastAPI Application (API, Services, ORM)
 ├── ml/                       # Machine Learning Pipeline (Preprocessing, Training)
-├── models/                   # Saved artifacts (Scalers, RandomForests, IsolationForest)
+├── models/                   # Saved artifacts (Scaler, selected classifier, RUL RandomForest, IsolationForest)
 ├── dashboard/                # Streamlit UI
 ├── scripts/                  # Data generators (Simulated telemetry)
 ├── docker/                   # Dockerfiles
@@ -75,6 +75,20 @@ docker-compose up --build
 - **FastAPI Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
 - **Streamlit Dashboard:** [http://localhost:8501](http://localhost:8501)
 - **Prometheus Metrics:** [http://localhost:9090](http://localhost:9090)
+
+---
+
+## Model Selection
+
+`ml/training/train_classifier.py` does not assume the more complex model wins. It trains a plain `LogisticRegression` baseline and an Optuna-tuned `RandomForestClassifier`, evaluates both on the held-out test split using **PR-AUC** (`average_precision_score`) — the right metric here since `failure_imminent` is a rare-event label and ROC-AUC/accuracy can look good on an imbalanced target even when precision at low recall is poor — and saves whichever model actually scores higher as `models/classifier.pkl`, tagged with which algorithm won. On a given run of the synthetic dataset the two models often land close together (sometimes the baseline wins), which is itself informative: it means the extra complexity of the RandomForest isn't yet earning its keep on this data, and the pipeline reports that honestly rather than hard-coding a "sophisticated model" as the headline.
+
+## Data & Validation
+
+**All training and evaluation data is synthetically generated** by `scripts/generate_dataset.py` — parametric noise plus a hand-authored non-linear degradation curve, not measurements from a physical machine. This project has not been trained or evaluated on real machine telemetry. Consequences of that:
+
+- Reported metrics (PR-AUC, F1, etc.) describe how well the models fit the synthetic generator's assumptions about degradation, not real-world failure signatures.
+- Sensor correlations, noise characteristics, and failure-mode timing in real equipment will differ from the synthetic curves here, likely substantially.
+- Treat this repo as a demonstration of an end-to-end MLOps/predictive-maintenance *pipeline* (data → features → training → serving → XAI → monitoring), not as a validated failure-prediction model for any real asset. Before using it on real telemetry, the models would need to be retrained and re-evaluated on that data from scratch.
 
 ---
 
