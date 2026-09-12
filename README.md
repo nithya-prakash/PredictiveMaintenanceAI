@@ -6,6 +6,8 @@
 
 *Built for Industrial ML Engineering portfolios (e.g., Siemens, Bosch, BMW, NVIDIA).*
 
+![Demo: adjusting sensor telemetry in the dashboard and running AI diagnostics](docs/assets/demo.gif)
+
 ---
 
 ## 🚀 Features & Verified Metrics
