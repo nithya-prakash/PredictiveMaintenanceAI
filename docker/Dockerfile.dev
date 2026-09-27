@@ -1,18 +1,11 @@
+# Image for training, evaluation and tests (includes optuna, mlflow, pytest, ruff).
 FROM python:3.11-slim
 WORKDIR /app
-
-# Only what the dashboard needs (no ML libraries: it calls the API).
 # Installs from a full, hash-pinned lockfile (every transitive dependency) for this
 # CPU architecture; see scripts/lock.sh.
 COPY locks/ locks/
-RUN LOCK="locks/dashboard-$(uname -m).txt"; \
+RUN LOCK="locks/dev-$(uname -m).txt"; \
     if [ ! -f "$LOCK" ]; then echo "No lockfile $LOCK for this architecture; run scripts/lock.sh" >&2; exit 1; fi; \
     pip install --no-cache-dir --require-hashes -r "$LOCK"
-
-COPY dashboard/ ./dashboard/
-COPY ml/__init__.py ./ml/__init__.py
-COPY ml/data/ ./ml/data/
-
+COPY . .
 ENV PYTHONPATH=/app
-EXPOSE 8501
-CMD ["streamlit", "run", "dashboard/app.py", "--server.port", "8501", "--server.address", "0.0.0.0"]

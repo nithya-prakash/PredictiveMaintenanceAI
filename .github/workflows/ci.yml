@@ -7,15 +7,24 @@ on:
     branches: [main]
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install ruff
+      - run: ruff check .
+
   test:
     runs-on: ubuntu-latest
-
     services:
       postgres:
         image: postgres:15
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: ci-only-password
           POSTGRES_DB: predictive_maintenance
         ports:
           - 5432:5432
@@ -24,20 +33,43 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 5
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: "pip"
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Run tests
+      - name: Install dependencies (hash-pinned lockfile)
+        run: pip install --require-hashes -r locks/dev-x86_64.txt
+      - name: Run tests (against a real Postgres)
         env:
           PYTHONPATH: .
+          POSTGRES_PASSWORD: ci-only-password
         run: pytest tests/ -v
+      - name: Recommendations were persisted to Postgres during the tests
+        env:
+          PGPASSWORD: ci-only-password
+        run: test "$(psql -h localhost -U postgres -d predictive_maintenance -tAc 'select count(*) from predictions')" -gt 0
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build images
+        run: |
+          docker build -f docker/Dockerfile.api -t pdm-api .
+          docker build -f docker/Dockerfile.dashboard -t pdm-dashboard .
+      - name: No secrets or data baked into the images
+        run: |
+          for img in pdm-api pdm-dashboard; do
+            docker run --rm --entrypoint sh $img -c 'test ! -e /app/.env && test ! -e /app/data && test ! -e /app/.git'
+          done
+      - name: Compose stack starts on a clean checkout
+        env:
+          POSTGRES_PASSWORD: ci-only-password
+          GRAFANA_ADMIN_PASSWORD: ci-only-password
+        run: |
+          docker compose up -d --build db api
+          for i in $(seq 1 60); do curl -sf http://localhost:8001/health && break; sleep 3; done
+          curl -sf http://localhost:8001/health | grep -q '"database":true'
+          docker compose down

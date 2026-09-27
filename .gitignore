@@ -5,7 +5,8 @@ __pycache__/
 *.pyc
 .DS_Store
 *.log
-data/
+# Root data folder only: a bare "data/" would also ignore the ml/data/ package.
+/data/
 postgres-data/
 grafana-data/
 prometheus-data/

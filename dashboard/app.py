@@ -1,97 +1,117 @@
-import streamlit as st
+"""
+Dashboard: replays NASA C-MAPSS FD001 *test* engines through the API.
+
+Pick an engine and a cycle; the dashboard sends that engine's real sensor
+history up to that cycle to the API, exactly as a monitoring system would. NASA
+publishes the true RUL for the test engines, so the prediction can be compared
+with the truth on screen.
+"""
+import os
+from pathlib import Path
+
 import pandas as pd
-import requests
 import plotly.graph_objects as go
+import requests
+import streamlit as st
 
-API_URL = "http://api:8000/api/v1" # Docker service name
+from ml.data.cmapss import DEFAULT_DIR, SENSOR_DESCRIPTIONS, SENSORS, load_test
 
-st.set_page_config(page_title="Industrial AI | Predictive Maintenance", layout="wide")
+API_URL = os.environ.get("API_URL", "http://localhost:8000/api/v1")
+# Marks the dashboard as a trusted caller, exempt from the API's per-IP rate limit.
+HEADERS = {"X-API-Key": os.environ["API_TOKEN"]} if os.environ.get("API_TOKEN") else {}
+DATA_DIR = Path(os.environ.get("CMAPSS_DIR", DEFAULT_DIR))
+TIMEOUT = 15
+MAX_READINGS = 500  # API limit per request
 
-st.title("🏭 Manufacturing Predictive Maintenance AI")
-st.markdown("Real-time monitoring, failure forecasting, and explainable AI for industrial machinery.")
+st.set_page_config(page_title="Predictive Maintenance | C-MAPSS", layout="wide")
+st.title("Turbofan predictive maintenance")
+st.caption("NASA C-MAPSS FD001 test engines replayed through the API. True RUL is known for these engines, "
+           "so every prediction can be checked.")
 
-# Sidebar for Machine Selection
-st.sidebar.header("Machine Selection")
-machine_id = st.sidebar.number_input("Machine ID", min_value=1, max_value=1000, value=1)
 
-# Synthetic current data inputs for the dashboard
-st.sidebar.header("Sensor Telemetry")
-temp = st.sidebar.slider("Temperature (°C)", 50.0, 150.0, 75.0)
-pressure = st.sidebar.slider("Pressure (psi)", 50.0, 150.0, 100.0)
-vib = st.sidebar.slider("Vibration (mm/s)", 0.0, 3.0, 0.5)
-rpm = st.sidebar.slider("RPM", 1000.0, 2000.0, 1500.0)
-volt = st.sidebar.slider("Voltage (V)", 200.0, 250.0, 220.0)
-curr = st.sidebar.slider("Current (A)", 10.0, 30.0, 15.0)
-oil = st.sidebar.slider("Oil Quality (%)", 0.0, 100.0, 80.0)
+@st.cache_data
+def test_data():
+    return load_test(DATA_DIR)
 
-payload = {
-    "machine_id": machine_id,
-    "temperature": temp,
-    "pressure": pressure,
-    "vibration": vib,
-    "rpm": rpm,
-    "voltage": volt,
-    "current": curr,
-    "oil_quality": oil
-}
 
-col1, col2, col3 = st.columns(3)
+if not (DATA_DIR / "test_FD001.txt").exists():
+    st.error(f"C-MAPSS data not found in {DATA_DIR}. Run `python -m ml.data.cmapss` (downloads it from NASA).")
+    st.stop()
 
-if st.sidebar.button("Run AI Diagnostics"):
-    with st.spinner("Running ML Inference..."):
-        try:
-            # Parallel API calls would be better, but doing serial for simplicity in prototyping
-            rul_res = requests.post(f"{API_URL}/predict-rul", json=payload).json()
-            fail_res = requests.post(f"{API_URL}/predict-failure", json=payload).json()
-            anom_res = requests.post(f"{API_URL}/anomaly", json=payload).json()
-            rec_res = requests.post(f"{API_URL}/recommend-maintenance", json=payload).json()
-            xai_res = requests.post(f"{API_URL}/explain", json=payload).json()
-            
-            with col1:
-                st.subheader("Remaining Useful Life")
-                st.metric(label="RUL (Cycles)", value=f"{rul_res['predicted_rul']:.1f}")
-                
-            with col2:
-                st.subheader("Failure Probability")
-                prob_pct = fail_res['failure_probability'] * 100
-                st.metric(label="Probability", value=f"{prob_pct:.1f}%")
-                if fail_res['failure_imminent']:
-                    st.error("⚠️ Failure Imminent")
-                    
-            with col3:
-                st.subheader("Anomaly Detection")
-                if anom_res['is_anomaly']:
-                    st.error("🚨 Anomaly Detected")
-                else:
-                    st.success("✅ Nominal")
-                    
-            st.divider()
-            
-            st.subheader("Maintenance Recommendation")
-            if rec_res['urgency'] == "HIGH":
-                st.error(f"**Action:** {rec_res['action']} \n\n **Reason:** {rec_res['reason']}")
-            elif rec_res['urgency'] == "MEDIUM":
-                st.warning(f"**Action:** {rec_res['action']} \n\n **Reason:** {rec_res['reason']}")
-            else:
-                st.success(f"**Action:** {rec_res['action']} \n\n **Reason:** {rec_res['reason']}")
-                
-            st.divider()
-            
-            st.subheader("Explainable AI (SHAP Feature Importance)")
-            importance = xai_res['feature_importance']
-            
-            if importance:
-                # Plotly Bar Chart
-                fig = go.Figure(go.Bar(
-                    x=list(importance.values())[::-1],
-                    y=list(importance.keys())[::-1],
-                    orientation='h',
-                    marker_color=['red' if v > 0 else 'blue' for v in list(importance.values())[::-1]]
-                ))
-                fig.update_layout(title="Impact on Failure Probability (Red = Increases risk, Blue = Decreases risk)")
-                st.plotly_chart(fig, use_container_width=True)
-                
-        except Exception as e:
-            st.error(f"Failed to connect to AI Backend: {e}")
-else:
-    st.info("Adjust sensor telemetry in the sidebar and click 'Run AI Diagnostics'.")
+df = test_data()
+engine_id = st.sidebar.selectbox("Test engine", sorted(df.engine_id.unique()), index=30)
+engine = df[df.engine_id == engine_id].reset_index(drop=True)
+last_cycle = int(engine.cycle.max())
+cycle = st.sidebar.slider("Current cycle", 15, last_cycle, last_cycle,
+                          help="The API needs at least 15 consecutive cycles of history.")
+history = engine[engine.cycle <= cycle].tail(MAX_READINGS)
+true_rul = int(history.rul.iloc[-1])
+payload = {"machine_id": int(engine_id), "readings": history[["cycle"] + SENSORS].to_dict(orient="records")}
+
+
+def call(path, method="post"):
+    r = requests.request(method, f"{API_URL}/{path}", json=payload if method == "post" else None,
+                         headers=HEADERS, timeout=TIMEOUT)
+    if not r.ok:
+        raise RuntimeError(f"{path}: HTTP {r.status_code} {r.json().get('detail', '')}")
+    return r.json()
+
+
+@st.cache_data(ttl=300)
+def model_info():
+    return call("model-info", "get")
+
+
+try:
+    # The recommendation already contains RUL, failure probability and the anomaly
+    # flag, so one refresh needs 3 calls instead of 6.
+    info = model_info()
+    rec, xai, traj = call("recommend-maintenance"), call("explain"), call("rul-trajectory")
+except Exception as e:  # noqa: BLE001 - shown to the user
+    st.error(f"API request failed: {e}")
+    st.stop()
+rul = {"predicted_rul": rec["predicted_rul"], "rul_cap": info["rul_cap"]}
+fail = {"failure_probability": rec["failure_probability"], "threshold": info["failure_threshold"],
+        "window_cycles": info["failure_window_cycles"]}
+anom = {"is_anomaly": rec["is_anomaly"]}
+
+c1, c2, c3, c4 = st.columns(4)
+c1.metric("Predicted RUL (cycles)", f"{rul['predicted_rul']:.0f}",
+          help=f"Model trained with RUL capped at {rul['rul_cap']}: values near it mean 'no visible degradation yet'.")
+c2.metric("True RUL (NASA)", f"{true_rul}", delta=f"{rul['predicted_rul'] - min(true_rul, rul['rul_cap']):+.0f} vs capped truth",
+          delta_color="off")
+c3.metric(f"Failure within {fail['window_cycles']} cycles", f"{fail['failure_probability']:.0%}",
+          help=f"Flagged as imminent at or above {fail['threshold']:.0%} (threshold tuned on training engines).")
+c4.metric("Anomaly", "Yes" if anom["is_anomaly"] else "No")
+
+box = {"HIGH": st.error, "MEDIUM": st.warning, "LOW": st.success}[rec["urgency"]]
+box(f"**{rec['urgency']}** — {rec['action']}  \n{rec['reason']}"
+    + ("" if rec["persisted"] else "  \n_(not saved: database unavailable)_"))
+
+left, right = st.columns(2)
+with left:
+    points = pd.DataFrame(traj["points"])
+    capped_truth = engine.set_index("cycle")["rul"].clip(upper=rul["rul_cap"])
+    fig = go.Figure()
+    fig.add_scatter(x=points.cycle, y=points.predicted_rul, name="Predicted RUL")
+    fig.add_scatter(x=capped_truth.index[capped_truth.index <= cycle], y=capped_truth[capped_truth.index <= cycle],
+                    name="True RUL (capped)", line=dict(dash="dash"))
+    fig.update_layout(title="Remaining useful life over this engine's history", xaxis_title="Cycle",
+                      yaxis_title="Cycles", height=380)
+    st.plotly_chart(fig, use_container_width=True)
+with right:
+    contrib = pd.Series(xai["feature_contributions"]).iloc[::-1]
+    fig = go.Figure(go.Bar(x=contrib.values, y=contrib.index, orientation="h",
+                           marker_color=["#c0392b" if v > 0 else "#2e86c1" for v in contrib.values]))
+    fig.update_layout(title="Why: SHAP contributions to failure risk (red = raises risk)", height=380,
+                      xaxis_title=xai["output"])
+    st.plotly_chart(fig, use_container_width=True)
+
+sensor = st.selectbox("Sensor trend", SENSORS, index=SENSORS.index("s11"),
+                      format_func=lambda s: f"{s}: {SENSOR_DESCRIPTIONS[s]}")
+fig = go.Figure()
+fig.add_scatter(x=engine.cycle, y=engine[sensor], name=sensor, line=dict(color="#95a5a6"))
+fig.add_scatter(x=history.cycle, y=history[sensor], name="sent to API")
+fig.add_vline(x=cycle, line_dash="dot")
+fig.update_layout(height=300, xaxis_title="Cycle", showlegend=False)
+st.plotly_chart(fig, use_container_width=True)

@@ -1,0 +1,18 @@
+{
+  "title": "Predictive Maintenance API",
+  "uid": "pdm-api",
+  "schemaVersion": 39,
+  "time": {"from": "now-30m", "to": "now"},
+  "refresh": "10s",
+  "panels": [
+    {"type": "timeseries", "title": "Requests per second by endpoint", "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+     "datasource": {"type": "prometheus", "uid": "prometheus"},
+     "targets": [{"expr": "sum by (handler) (rate(http_requests_total{handler=~\"/api/.*\"}[1m]))", "legendFormat": "{{handler}}"}]},
+    {"type": "timeseries", "title": "p95 latency (s) by endpoint", "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+     "datasource": {"type": "prometheus", "uid": "prometheus"},
+     "targets": [{"expr": "histogram_quantile(0.95, sum by (le, handler) (rate(http_request_duration_seconds_bucket{handler=~\"/api/.*\"}[5m])))", "legendFormat": "{{handler}}"}]},
+    {"type": "timeseries", "title": "Error responses (4xx/5xx) per second", "gridPos": {"x": 0, "y": 8, "w": 24, "h": 7},
+     "datasource": {"type": "prometheus", "uid": "prometheus"},
+     "targets": [{"expr": "sum by (status) (rate(http_requests_total{status=~\"4..|5..\"}[1m]))", "legendFormat": "{{status}}"}]}
+  ]
+}

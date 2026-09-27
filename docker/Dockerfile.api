@@ -1,21 +1,21 @@
 FROM python:3.11-slim
-
 WORKDIR /app
 
-# Install dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Installs from a full, hash-pinned lockfile (every transitive dependency) for this
+# CPU architecture; see scripts/lock.sh.
+COPY locks/ locks/
+RUN LOCK="locks/runtime-$(uname -m).txt"; \
+    if [ ! -f "$LOCK" ]; then echo "No lockfile $LOCK for this architecture; run scripts/lock.sh" >&2; exit 1; fi; \
+    pip install --no-cache-dir --require-hashes -r "$LOCK"
 
-# Copy source code and models
+# Code and the trained model bundle only. Secrets come from the environment at
+# runtime (never copied into the image; see .dockerignore).
 COPY backend/ ./backend/
 COPY ml/ ./ml/
-COPY models/ ./models/
-COPY .env* ./
+COPY models/model_bundle.joblib ./models/model_bundle.joblib
 
-# Expose API port
-EXPOSE 8000
-
-# Set PYTHONPATH to root so 'backend' and 'ml' can be imported
 ENV PYTHONPATH=/app
-
+EXPOSE 8000
+HEALTHCHECK --interval=10s --timeout=3s --retries=5 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"
 CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]

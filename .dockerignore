@@ -1,0 +1,19 @@
+# Secrets must never be baked into an image (compose injects them at runtime).
+.env
+.env.*
+!.env.example
+# Data is downloaded/mounted, not copied.
+data/
+mlruns/
+mlflow.db
+site/
+.git/
+.github/
+**/__pycache__/
+**/*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+.DS_Store
+docs/

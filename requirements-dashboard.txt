@@ -1,0 +1,5 @@
+# Dashboard dependencies (no ML libraries), pinned; installed from locks/.
+streamlit==1.64.0
+plotly==7.1.0
+pandas==3.0.6
+requests==2.34.2

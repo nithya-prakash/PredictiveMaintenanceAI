@@ -1,61 +1,30 @@
-import shap
 import pandas as pd
-import numpy as np
-from backend.services.predictor import predictor_service
+import shap
 
-class XAIService:
-    def __init__(self):
-        # The classifier explainer type depends on which algorithm actually
-        # won the PR-AUC comparison in training (RandomForest or LogisticRegression),
-        # not an assumption that it's always a tree model.
-        self.rul_explainer = None
-        self.classifier_explainer = None
+_explainers = {}
 
-    def _init_explainers(self):
-        if predictor_service.model_rul and not self.rul_explainer:
-            self.rul_explainer = shap.TreeExplainer(predictor_service.model_rul)
 
-        if predictor_service.model_classifier and not self.classifier_explainer:
-            if predictor_service.classifier_algorithm == "RandomForestClassifier":
-                self.classifier_explainer = shap.TreeExplainer(predictor_service.model_classifier)
-            else:
-                background = predictor_service.classifier_background
-                self.classifier_explainer = shap.LinearExplainer(
-                    predictor_service.model_classifier, background
-                )
-
-    def explain_failure(self, data) -> dict:
-        self._init_explainers()
-        if not self.classifier_explainer:
-            return {"error": "Model not loaded"}
-
-        features = predictor_service._prepare_data([data])
-
-        # Calculate SHAP values
-        shap_values = self.classifier_explainer.shap_values(features)
-
-        # Binary classification usually returns shape (1, num_features) or (1, num_features, 2)
-        # For RandomForest, shape is (1, num_features, 2) where [:,:,1] is the positive class.
-        # LinearExplainer (LogisticRegression) returns shape (1, num_features) directly.
-        if isinstance(shap_values, list):
-            sv = shap_values[1][0]
+def _explainer(bundle):
+    """SHAP explainer matching the deployed failure model, cached per bundle.
+    Contributions are in log-odds of 'failure within the window'."""
+    key = id(bundle)
+    if key not in _explainers:
+        model = bundle["failure"]["model"]
+        if bundle["failure"]["algorithm"] == "LogisticRegression":
+            scaler, estimator = model[0], model[-1]
+            background = scaler.transform(pd.DataFrame(bundle["shap_background"], columns=bundle["feature_cols"]))
+            _explainers[key] = ("linear", shap.LinearExplainer(estimator, background), scaler)
         else:
-            if len(shap_values.shape) == 3:
-                sv = shap_values[0, :, 1]
-            else:
-                sv = shap_values[0]
-                
-        feature_names = predictor_service.preprocessor.feature_cols
-        
-        importance_dict = {feat: float(val) for feat, val in zip(feature_names, sv)}
-        
-        # Sort by absolute impact
-        sorted_importance = dict(sorted(importance_dict.items(), key=lambda item: abs(item[1]), reverse=True))
-        top_contributor = list(sorted_importance.keys())[0] if sorted_importance else "Unknown"
-        
-        return {
-            "feature_importance": sorted_importance,
-            "top_contributor": top_contributor
-        }
+            _explainers[key] = ("tree", shap.TreeExplainer(model), None)
+    return _explainers[key]
 
-xai_service = XAIService()
+
+def explain_rows(bundle, X: pd.DataFrame) -> pd.DataFrame:
+    """Per-feature SHAP contributions for each row of X (same columns as X)."""
+    kind, explainer, scaler = _explainer(bundle)
+    values = explainer.shap_values(scaler.transform(X) if scaler is not None else X)
+    if isinstance(values, list):  # older SHAP returns one array per class
+        values = values[1]
+    if getattr(values, "ndim", 2) == 3:
+        values = values[:, :, 1]
+    return pd.DataFrame(values, columns=X.columns, index=X.index)

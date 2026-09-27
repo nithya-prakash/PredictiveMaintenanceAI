@@ -1,0 +1,9 @@
+# Training, evaluation, tests, lint and docs (not installed in the API image).
+-r requirements.txt
+optuna==5.0.0
+mlflow==3.16.1
+pytest==9.1.1
+httpx2==2.13.1
+ruff==0.16.9
+mkdocs==1.6.1
+mkdocs-material==9.7.7

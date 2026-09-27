@@ -31,7 +31,7 @@ jobs:
           cache: "pip"
 
       - name: Install dependencies
-        run: pip install mkdocs mkdocs-material
+        run: pip install mkdocs==1.6.1 mkdocs-material==9.7.7  # same pins as requirements-dev.txt
 
       - name: Build docs
         run: mkdocs build --strict

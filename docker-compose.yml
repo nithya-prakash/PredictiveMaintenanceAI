@@ -1,58 +1,74 @@
+# All ports are published on 127.0.0.1 only. Postgres is not published at all:
+# only the API reaches it, over the compose network. Passwords come from .env
+# (copy .env.example); compose refuses to start without them.
 services:
   db:
     image: postgres:15
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (see .env.example)}
       POSTGRES_DB: predictive_maintenance
-    ports:
-      - "5434:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
 
   api:
     build:
       context: .
       dockerfile: docker/Dockerfile.api
     ports:
-      - "8001:8000"
+      - "127.0.0.1:8001:8000"
     depends_on:
       db:
         condition: service_healthy
     environment:
-      - POSTGRES_SERVER=db
-    volumes:
-      - ./models:/app/models
+      POSTGRES_SERVER: db
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (see .env.example)}
+      API_TOKEN: ${API_TOKEN:-}
 
   dashboard:
     build:
       context: .
       dockerfile: docker/Dockerfile.dashboard
     ports:
-      - "8501:8501"
+      - "127.0.0.1:8501:8501"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     environment:
-      - API_URL=http://api:8000/api/v1
-
-  prometheus:
-    image: prom/prometheus
-    ports:
-      - "9090:9090"
+      API_URL: http://api:8000/api/v1
+      API_TOKEN: ${API_TOKEN:-}
+      CMAPSS_DIR: /app/data/raw/cmapss
     volumes:
-      - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml
+      # Test engines replayed by the dashboard (python -m ml.data.cmapss downloads them).
+      - ./data/raw/cmapss:/app/data/raw/cmapss:ro
+
+  # Optional monitoring: docker compose --profile monitoring up
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    profiles: ["monitoring"]
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml:ro
 
   grafana:
-    image: grafana/grafana
+    image: grafana/grafana:11.1.0
+    profiles: ["monitoring"]
     ports:
-      - "3001:3000"
+      - "127.0.0.1:3001:3000"
     depends_on:
       - prometheus
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in .env (see .env.example)}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./configs/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./configs/grafana/dashboards:/var/lib/grafana/dashboards:ro
 
 volumes:
   pgdata:
