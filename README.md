@@ -1,125 +1,115 @@
-# Manufacturing Predictive Maintenance AI
+# Turbofan Predictive Maintenance AI
 
 [![CI](https://github.com/nithya-prakash/PredictiveMaintenanceAI/actions/workflows/ci.yml/badge.svg)](https://github.com/nithya-prakash/PredictiveMaintenanceAI/actions/workflows/ci.yml)
 [![Docs](https://github.com/nithya-prakash/PredictiveMaintenanceAI/actions/workflows/docs.yml/badge.svg)](https://nithya-prakash.github.io/PredictiveMaintenanceAI/)
 [![License: MIT](https://img.shields.io/github/license/nithya-prakash/PredictiveMaintenanceAI)](LICENSE)
 
-**End-to-end AI platform capable of predicting industrial machine failures before they happen, estimating Remaining Useful Life (RUL), detecting anomalies in sensor streams, explaining predictions via SHAP, and recommending maintenance actions.**
+An end-to-end predictive-maintenance system trained and evaluated on **NASA's C-MAPSS turbofan engine dataset (FD001)**, the standard public benchmark for remaining-useful-life (RUL) prediction. From an engine's recent sensor history it estimates remaining useful life, the probability of failure within 30 cycles, and whether the readings are anomalous; explains the failure risk with SHAP; and turns it into a maintenance recommendation. It is served by a FastAPI backend and a Streamlit dashboard that replays NASA's test engines, with Postgres logging and optional Prometheus/Grafana monitoring, all in Docker Compose.
 
-*Built for Industrial ML Engineering portfolios (e.g., Siemens, Bosch, BMW, NVIDIA).*
+![Dashboard: a NASA test engine replayed through the API, predicted vs. true RUL, SHAP explanation and sensor trend](docs/assets/demo.gif)
 
-![Demo: adjusting sensor telemetry in the dashboard and running AI diagnostics](docs/assets/demo.gif)
+## Results on NASA's official test set
 
----
+All model choices (algorithm, hyperparameters, decision threshold) were made with **engine-wise cross-validation on the 100 training engines**. NASA's **100 official test engines** were used only once, for the numbers below (`evaluation/results/FINAL_REPORT.md`).
 
-## 🚀 Features & Verified Metrics
+**Remaining useful life** — standard protocol: predict at each test engine's last cycle, with RUL labels capped at 125 cycles (piecewise-linear degradation). Lower is better; the NASA score penalises late predictions (too much life left) more than early ones.
 
-- **Predictive Maintenance Engine:** Estimates probability of failure within the next 30 cycles. A `LogisticRegression` baseline and a tuned `RandomForestClassifier` are both trained and benchmarked on held-out data by PR-AUC (the appropriate metric for this rare-event label); whichever actually scores higher is the one deployed — see [Model Selection](#model-selection) below.
-  - **Performance:** On a strict machine-wise holdout test set, `LogisticRegression` scored **0.997 PR-AUC** versus `RandomForestClassifier`'s **0.992 PR-AUC** — the baseline wins, indicating the synthetic deterioration boundaries are close to linearly separable, so the baseline is what actually gets deployed here rather than the more complex model.
-  - **Robustness:** Verified via `GroupKFold` cross-validation across machines (**0.998 ROC-AUC** mean) to ensure zero entity leakage.
-- **Remaining Useful Life (RUL):** Forecasts exactly how many cycles a machine has left using `RandomForestRegressor`.
-  - **Performance:** Achieved **9.72 RMSE** (Root Mean Squared Error), vastly outperforming the naive mean-prediction baseline of 71.30 RMSE.
-- **Anomaly Detection:** Identifies novel operating conditions and sensor drift via `IsolationForest`.
-- **Explainable AI (XAI):** Calculates SHAP feature importance to explain exactly *why* a machine is predicted to fail.
-- **Recommendation Engine:** Suggests actionable maintenance tasks based on failure probabilities and root causes.
-- **Microservices Architecture:** 
-  - **FastAPI** backend for high-performance inference (p99 latency < 11ms).
-  - **Streamlit** dashboard for monitoring.
-  - **PostgreSQL** logs each sensor reading and the resulting recommendation (see `/api/v1/recommend-maintenance`).
-  - **Prometheus / Grafana** for monitoring system health.
-- **MLOps Integration:** `MLflow` for experiment tracking, model registry, and metrics logging. `Optuna` for automated hyperparameter optimization. `Docker Compose` for seamless deployment.
+| Model | Test RMSE | Test MAE | NASA score | CV RMSE (training) |
+|---|---|---|---|---|
+| **Random Forest (deployed)** | **17.19** | **12.22** | **573** | 16.93 |
+| Gradient boosting (HistGB) | 17.35 | 12.44 | 580 | 17.05 |
+| Linear regression | 19.31 | 14.91 | 718 | 19.22 |
+| Mean-prediction baseline | 41.21 | 34.85 | 25,451 | – |
 
-## 🔬 Evaluation Methodology & Reproducibility
-This project was built to be rigorously defensible. The evaluation suite specifically avoids common temporal and entity leakage pitfalls in predictive maintenance:
-1. **Machine-wise Holdout:** A machine is either fully in the training set or fully in the test set. Its deterioration trajectory never crosses the split boundary.
-2. **Preprocessing Isolation:** Scalers and rolling features are fitted strictly on the training set.
-3. **Reproducible Command:** Run `python -m evaluation.run_all` to execute the full evaluation suite, latency benchmarking, and baseline comparisons automatically.
+For context, published FD001 results under the same protocol ([Ragab et al. 2020](https://arxiv.org/abs/2007.09868), Table III): Random Forest 17.91 RMSE / score 480, gradient boosting 15.67 / 474, deep LSTM 16.14 / 338, 1D CNN 12.61 / 274. So the deployed model matches the published Random Forest on RMSE but scores worse on the NASA score (it predicts too much remaining life more often), and deep sequence models are clearly better. The small gap between cross-validated (16.93) and test RMSE (17.19) indicates the selection did not overfit.
 
----
+**Imminent failure** (true RUL ≤ 30 cycles), on every test cycle with 15+ cycles of history:
 
-## Repository Structure
+| Model | PR-AUC | ROC-AUC | Precision | Recall | F1 |
+|---|---|---|---|---|---|
+| **Logistic regression (deployed, threshold 0.80)** | **0.842** | 0.994 | 0.770 | 0.717 | 0.743 |
+| Gradient boosting (HistGB) | 0.820 | 0.991 | 0.665 | 0.777 | 0.717 |
+| Prior (always the base rate) | 0.028 | 0.500 | – | 0 | 0 |
 
-```
-PredictiveMaintenanceAI/
-├── backend/                  # FastAPI Application (API, Services, ORM)
-├── ml/                       # Machine Learning Pipeline (Preprocessing, Training)
-├── models/                   # Saved artifacts (Scaler, selected classifier, RUL RandomForest, IsolationForest)
-├── dashboard/                # Streamlit UI
-├── scripts/                  # Data generators (Simulated telemetry)
-├── docker/                   # Dockerfiles
-├── docker-compose.yml        # Orchestration
-├── mkdocs.yml                # Documentation configuration
-└── docs/                     # Architecture and API documentation
-```
+The deployed threshold (0.80) was chosen on out-of-fold training predictions and is exactly the one the API uses. Only 25 test engines come within 30 cycles of failure (332 positive cycles, consecutive and correlated), so these numbers carry real uncertainty; cross-validated PR-AUC on the training engines was 0.966.
 
----
+**Anomaly detection** (IsolationForest learned from early-life cycles): the share of cycles flagged rises as failure approaches, 1.2% (true RUL > 125) → 8.4% (61–125) → 55.5% (31–60) → 99.1% (≤ 30).
 
-## Tech Stack
+**Latency**: p99 about 13 ms for `/predict-failure` and 15 ms for `/explain` (200 sequential requests with 30 readings each, full HTTP stack in-process on a laptop; not a production load test).
 
-- **Machine Learning:** `scikit-learn`, `pandas`, `numpy`, `SHAP`
-- **MLOps:** `MLflow`, `Optuna`
-- **Backend:** `FastAPI`, `SQLAlchemy`, `Pydantic`, `Uvicorn`
-- **Database:** `PostgreSQL`
-- **UI:** `Streamlit`, `Plotly`
-- **DevOps:** `Docker`, `Prometheus`, `Grafana`
+## How it works
 
----
+1. **Data** (`ml/data/cmapss.py`): downloads NASA's archive and verifies its SHA-256 checksum. FD001 has 100 training engines run until failure and 100 test engines stopped before failure, with the true RUL given for their last cycle. The 7 sensors that are constant in FD001 are dropped (14 remain), as is standard.
+2. **Features** (`ml/features/preprocessing.py`): per engine, the raw sensors, the cycle count, and rolling means and standard deviations over the last 5 and 15 cycles (71 features). Only cycles with a full 15-cycle history are used, and the API requires at least 15 consecutive readings, so a served prediction uses exactly the features the models were trained on (a test checks this).
+3. **Training** (`ml/training/train.py`): Optuna tunes each candidate with 5-fold `GroupKFold` by engine; the best candidate by cross-validated RMSE (RUL) or PR-AUC (failure) is selected, the failure threshold is chosen on out-of-fold predictions, and everything is saved as one bundle (`models/model_bundle.joblib`) with its training metadata. MLflow logs each run locally.
+4. **Evaluation** (`evaluation/run_all.py`): the only code that touches the official test engines.
+5. **Serving** (`backend/`): FastAPI endpoints take an engine's recent history and return RUL, failure probability, anomaly flag, SHAP contributions, an RUL trajectory, and a maintenance recommendation (logged to Postgres).
+6. **Dashboard** (`dashboard/app.py`): pick a NASA test engine and a cycle; its real sensor history is sent to the API and the prediction is shown next to the true RUL.
 
-## Getting Started
+## Getting started
 
-### 1. Generate the Dataset
-Since industrial data is proprietary, we include a high-fidelity synthetic data generator that simulates multi-sensor degradation over time.
+Requires Docker with Compose v2.
+
 ```bash
-python scripts/generate_dataset.py --machines 150
+git clone https://github.com/nithya-prakash/PredictiveMaintenanceAI.git
+cd PredictiveMaintenanceAI
+cp .env.example .env            # then set POSTGRES_PASSWORD and API_TOKEN (and GRAFANA_ADMIN_PASSWORD for monitoring)
+docker build -f docker/Dockerfile.dev -t pdm:dev .
+docker run --rm -v "$PWD/data:/app/data" pdm:dev python -m ml.data.cmapss   # downloads C-MAPSS (12 MB) for the dashboard
+docker compose up --build
 ```
 
-### 2. Train the Models
-Run the ML pipelines to train the RUL, Classification, and Anomaly models. This automatically tracks experiments in MLflow and saves artifacts to the `models/` directory.
+- Dashboard: http://127.0.0.1:8501
+- API docs (Swagger): http://127.0.0.1:8001/docs
+- Monitoring (optional): `docker compose --profile monitoring up` → Prometheus http://127.0.0.1:9090, Grafana http://127.0.0.1:3001 (login `admin` / `GRAFANA_ADMIN_PASSWORD`, dashboard provisioned)
+
+A trained model bundle is included, so the API runs without retraining. To retrain and re-evaluate (inside the dev image, with `-v "$PWD/data:/app/data" -v "$PWD/models:/app/models"`):
+
 ```bash
-export PYTHONPATH=.
-python ml/training/train_rul.py --trials 10
-python ml/training/train_classifier.py --trials 10
-python ml/training/train_anomaly.py
+python -m ml.training.train --trials 8    # about 10 minutes on a laptop
+python -m evaluation.run_all              # writes evaluation/results/
+pytest tests/                             # 22 tests
 ```
 
-### 3. Deploy the Stack
-Spin up the entire microservices architecture using Docker Compose.
-```bash
-docker-compose up --build
-```
-- **FastAPI Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
-- **Streamlit Dashboard:** [http://localhost:8501](http://localhost:8501)
-- **Prometheus Metrics:** [http://localhost:9090](http://localhost:9090)
+## API
 
----
+Every prediction endpoint takes the engine's most recent consecutive cycles (at least 15, oldest first):
 
-## Model Selection
-
-`ml/training/train_classifier.py` does not assume the more complex model wins. It trains a plain `LogisticRegression` baseline and an Optuna-tuned `RandomForestClassifier`, evaluates both on the held-out test split using **PR-AUC** (`average_precision_score`) — the right metric here since `failure_imminent` is a rare-event label and ROC-AUC/accuracy can look good on an imbalanced target even when precision at low recall is poor — and saves whichever model actually scores higher as `models/classifier.pkl`, tagged with which algorithm won. On a given run of the synthetic dataset the two models often land close together (sometimes the baseline wins), which is itself informative: it means the extra complexity of the RandomForest isn't yet earning its keep on this data, and the pipeline reports that honestly rather than hard-coding a "sophisticated model" as the headline.
-
-## Data & Validation
-
-**All training and evaluation data is synthetically generated** by `scripts/generate_dataset.py` — parametric noise plus a hand-authored non-linear degradation curve, not measurements from a physical machine. This project has not been trained or evaluated on real machine telemetry. Consequences of that:
-
-- Reported metrics (PR-AUC, F1, etc.) describe how well the models fit the synthetic generator's assumptions about degradation, not real-world failure signatures.
-- Sensor correlations, noise characteristics, and failure-mode timing in real equipment will differ from the synthetic curves here, likely substantially.
-- Treat this repo as a demonstration of an end-to-end MLOps/predictive-maintenance *pipeline* (data → features → training → serving → XAI → monitoring), not as a validated failure-prediction model for any real asset. Before using it on real telemetry, the models would need to be retrained and re-evaluated on that data from scratch.
-
----
-
-## XAI & Maintenance Recommendations
-
-The API returns not just predictions, but explanations:
 ```json
 {
-  "machine_id": 42,
-  "action": "Immediate inspection required. High probability of imminent failure.",
-  "urgency": "HIGH",
-  "reason": "Driven primarily by anomalous 'vibration_roll_mean_5' readings."
+  "machine_id": 31,
+  "readings": [
+    {"cycle": 182, "s2": 643.23, "s3": 1599.84, "s4": 1419.03, "s7": 552.42, "s8": 2388.14, "s9": 9083.86,
+     "s11": 47.98, "s12": 520.0, "s13": 2388.16, "s14": 8153.3, "s15": 8.506, "s17": 396, "s20": 38.54, "s21": 23.2061},
+    "... 14 or more further consecutive cycles (183, 184, ...) ..."
+  ]
 }
 ```
 
----
+`POST /api/v1/predict-rul`, `/predict-failure`, `/anomaly`, `/explain`, `/rul-trajectory`, `/recommend-maintenance`; `GET /api/v1/model-info`, `/health`, `/metrics`. Details in the [docs](https://nithya-prakash.github.io/PredictiveMaintenanceAI/api/).
 
-## 📜 License
-MIT License.
+## Engineering and security
+
+- Postgres has no default password (compose refuses to start without one) and is not published to the host; all ports bind to `127.0.0.1`. Grafana requires a password.
+- `.dockerignore` keeps `.env`, data and `.git` out of the images; CI checks this.
+- If the model bundle cannot be loaded, `/health` and every prediction endpoint answer 503 with the reason. The API starts without a database and reports `persisted: false`.
+- Per-client-IP rate limit (the dashboard presents `API_TOKEN` and is exempt, since all its users share one IP), explicit CORS origins, strict input validation (consecutive cycles, 15–500 readings).
+- Dependencies are installed from hash-pinned lockfiles per CPU architecture (`locks/`, regenerated by `scripts/lock.sh`); the API image contains no training tools and the dashboard image no ML libraries.
+- CI: ruff lint; 22 tests against a real Postgres (and a check that recommendations were persisted); image builds with a no-secrets check; a Compose start-up check.
+
+## Limitations
+
+- **FD001 only**: one operating condition and one fault mode. The multi-condition, multi-fault subsets (FD002–FD004) are harder and not covered.
+- **Simulated engines**: C-MAPSS comes from NASA's engine simulation, not from sensors on real aircraft; it is the standard benchmark, but real fleets are noisier.
+- **Classical models**: deep sequence models reach about 12–13 RMSE on FD001; this project's best is 17.19.
+- **Small positive set**: failure-classification metrics rest on 25 test engines.
+- The maintenance recommendation is a transparent rule on top of the models (failure probability ≥ threshold → HIGH; predicted RUL ≤ 60 or anomaly → MEDIUM), not a learned policy.
+- The rate limit is per API process.
+
+## Project history
+
+An earlier version of this repository used a synthetic data generator. An audit found that one synthetic sensor (`oil_quality`) declined almost linearly over each machine's life and on its own predicted failure with ROC-AUC 0.989, that the API predicted from a single reading while the models were trained on rolling history (at the default threshold it caught 28.5% of imminent failures instead of 98.8%), and that hyperparameters were tuned on the test split. The project was rebuilt on NASA C-MAPSS with the protocol above; the old generator, data and metrics were removed.
+
+## License
+
+MIT. The C-MAPSS data is published by the NASA Prognostics Center of Excellence and is downloaded at run time, not redistributed here.

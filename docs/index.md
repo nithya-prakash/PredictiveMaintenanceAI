@@ -1,19 +1,21 @@
-# Predictive Maintenance AI
+# Turbofan Predictive Maintenance AI
 
-Welcome to the documentation for the **Predictive Maintenance AI Platform**.
-
-This platform predicts industrial machine failures before they happen, estimates Remaining Useful Life (RUL), detects anomalies in sensor streams, and explains predictions using SHAP.
+A predictive-maintenance system trained and evaluated on **NASA's C-MAPSS turbofan engine dataset (FD001)**. From an engine's recent sensor history it estimates remaining useful life (RUL), the probability of failure within 30 cycles, and whether the readings are anomalous, explains the failure risk with SHAP, and recommends a maintenance action.
 
 ![Dashboard demo](assets/demo.gif)
 
-## Features
+## At a glance
 
-- **Remaining Useful Life (RUL) Prediction**: A `RandomForestRegressor`, tuned with Optuna, estimates cycles-to-failure.
-- **Imminent Failure Classification**: Benchmarks a `LogisticRegression` baseline against a tuned `RandomForestClassifier` by PR-AUC and deploys whichever actually wins — see [Models & XAI](models.md) for why this matters and what the numbers are.
-- **Anomaly Detection**: Unsupervised detection of novel operating regimes using an `IsolationForest`.
-- **Explainable AI (XAI)**: Every failure prediction is explained with SHAP, using `TreeExplainer` or `LinearExplainer` depending on which classifier is actually deployed.
-- **MLOps Integration**: MLflow for experiment tracking, Optuna for hyperparameter optimization, Docker Compose for local deployment.
+| | Deployed model | NASA test set (100 engines) |
+|---|---|---|
+| Remaining useful life | Random Forest | RMSE 17.19, NASA score 573 (published Random Forest: 17.91 / 480) |
+| Failure within 30 cycles | Logistic regression, threshold 0.80 | PR-AUC 0.842, precision 0.77, recall 0.72 |
+| Anomaly detection | IsolationForest on early-life cycles | flag rate 1% when healthy → 99% in the last 30 cycles |
 
-## Data & Validation
+Every modelling choice was made with engine-wise cross-validation on the training engines; the official test engines were used once, for these numbers. See [Models & evaluation](models.md).
 
-All training and evaluation data is **synthetically generated** (`scripts/generate_dataset.py`) — this platform has not been trained or validated on real machine telemetry. Treat it as a demonstration of an end-to-end MLOps pipeline, not a production-ready failure predictor. See the [main README](https://github.com/nithya-prakash/PredictiveMaintenanceAI#data--validation) for details.
+## Pages
+
+- [Architecture](architecture.md): services, request flow, security.
+- [API reference](api.md): endpoints and payloads.
+- [Models & evaluation](models.md): data, features, training protocol, full results, limitations.

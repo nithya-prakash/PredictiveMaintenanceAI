@@ -1,77 +1,31 @@
-# API Reference
+# API reference
 
-Base URL: `http://localhost:8001/api/v1` (via Docker Compose; the FastAPI container itself listens on `8000`, mapped to host port `8001`).
+Base URL with Docker Compose: `http://127.0.0.1:8001/api/v1`. Interactive docs: `http://127.0.0.1:8001/docs`.
 
-All endpoints accept a `SensorData` payload:
+## Request body
 
-```json
-{
-  "machine_id": 1,
-  "temperature": 85.0,
-  "pressure": 75.0,
-  "vibration": 1.8,
-  "rpm": 1250.0,
-  "voltage": 205.0,
-  "current": 19.0,
-  "oil_quality": 15.0
-}
-```
-
-## `GET /health`
-
-Returns service status and whether models loaded successfully at startup.
+All `POST` endpoints take an engine's most recent **consecutive** cycles, oldest first, at least 15 (the models use rolling statistics over 15 cycles) and at most 500. The prediction is for the last reading. Sensor names follow C-MAPSS (`s2` = T24 LPC outlet temperature, `s11` = Ps30 HPC outlet static pressure, … — see the schema in `/docs`).
 
 ```json
-{"status": "healthy", "models_loaded": true}
+{"machine_id": 31, "readings": [{"cycle": 182, "s2": 643.23, "s3": 1599.84, "...": "14 sensors"}, "... 15+ readings"]}
 ```
 
-## `POST /api/v1/predict-rul`
+Errors: `422` for fewer than 15 readings or non-consecutive cycles, `429` when the rate limit is exceeded, `503` when the models are not loaded.
 
-Predicts Remaining Useful Life in cycles.
+## Endpoints
 
-```json
-{"machine_id": 1, "predicted_rul": 42.3}
-```
+| Method and path | Returns |
+|---|---|
+| `POST /predict-rul` | `predicted_rul` (cycles; the model was trained with RUL capped at 125, so values near 125 mean "no visible degradation yet") |
+| `POST /predict-failure` | `failure_probability`, `threshold` (tuned in training), `failure_imminent`, `window_cycles` (30) |
+| `POST /anomaly` | `anomaly_score`, `threshold`, `is_anomaly` |
+| `POST /explain` | top 10 SHAP contributions to the failure log-odds, `top_contributor` |
+| `POST /rul-trajectory` | predicted RUL for every cycle of the history that has 15 cycles before it |
+| `POST /recommend-maintenance` | `urgency` (LOW/MEDIUM/HIGH), `action`, `reason`, the underlying predictions, `persisted` |
+| `GET /model-info` | deployed algorithms, threshold, training metadata |
+| `GET /health` (no `/api/v1` prefix) | `models_loaded`, `database`; 503 if models are missing |
+| `GET /metrics` (no prefix) | Prometheus metrics |
 
-## `POST /api/v1/predict-failure`
+## Recommendation rules
 
-Predicts the probability of failure within the next 30 cycles, using whichever classifier won the PR-AUC benchmark (see [Models & XAI](models.md)).
-
-```json
-{"machine_id": 1, "failure_probability": 0.87, "failure_imminent": true}
-```
-
-## `POST /api/v1/anomaly`
-
-Flags whether the current reading is an outlier relative to training data, via `IsolationForest`.
-
-```json
-{"machine_id": 1, "is_anomaly": false}
-```
-
-## `POST /api/v1/explain`
-
-Returns SHAP feature attributions for the failure prediction.
-
-```json
-{
-  "machine_id": 1,
-  "feature_importance": {"vibration_roll_mean_15": 20.66, "oil_quality_roll_std_5": -20.36},
-  "top_contributor": "vibration_roll_mean_15"
-}
-```
-
-## `POST /api/v1/recommend-maintenance`
-
-Combines the RUL, failure, and explanation calls into a single actionable recommendation. This is the only endpoint that writes to PostgreSQL — it get-or-creates the `Machine` row and logs the input `SensorReading` and the resulting `Prediction`.
-
-```json
-{
-  "machine_id": 1,
-  "action": "Immediate inspection required. High probability of imminent failure.",
-  "urgency": "HIGH",
-  "reason": "Driven primarily by anomalous 'vibration_roll_mean_15' readings."
-}
-```
-
-Interactive Swagger docs are also available at `/docs` on the running API.
+`HIGH` if the failure probability is at or above the trained threshold; `MEDIUM` if the predicted RUL is 60 cycles or less or the readings are anomalous; otherwise `LOW`. For MEDIUM/HIGH the reason names the feature with the largest positive SHAP contribution to failure risk.

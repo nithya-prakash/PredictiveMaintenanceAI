@@ -1,5 +1,5 @@
-site_name: Predictive Maintenance AI
-site_description: Documentation for the Industrial Predictive Maintenance AI Platform
+site_name: Turbofan Predictive Maintenance AI
+site_description: RUL, failure and anomaly prediction on NASA C-MAPSS FD001, served with FastAPI and Streamlit
 site_url: https://nithya-prakash.github.io/PredictiveMaintenanceAI/
 repo_url: https://github.com/nithya-prakash/PredictiveMaintenanceAI
 repo_name: nithya-prakash/PredictiveMaintenanceAI
