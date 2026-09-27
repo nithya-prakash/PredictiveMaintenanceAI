@@ -1,105 +1,55 @@
+"""
+Feature engineering shared by training, evaluation and the API.
+
+Each row describes one engine at one cycle, using only that engine's readings up
+to and including that cycle: the raw sensors, the cycle count (engine age), and
+rolling means/standard deviations over the last 5 and 15 cycles.
+
+Training only uses rows with at least MIN_HISTORY cycles of history, and the API
+requires at least MIN_HISTORY readings. That way a served prediction is computed
+from exactly the same kind of feature vector the models were trained on. (An
+earlier version fed the API a single reading, which silently turned rolling
+means into the raw value and rolling stds into 0 — inputs the models had never
+seen.)
+"""
+from typing import List
+
 import pandas as pd
-import numpy as np
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
-from typing import Tuple, List, Dict
-import joblib
-import os
 
-class PredictiveMaintenancePreprocessor:
-    def __init__(self, sequence_length: int = 30):
-        self.sequence_length = sequence_length
-        self.scaler = StandardScaler()
-        
-        self.sensor_cols = [
-            'temperature', 'pressure', 'vibration', 'rpm', 
-            'voltage', 'current', 'oil_quality'
-        ]
-        
-    def add_rolling_features(self, df: pd.DataFrame, window_sizes: List[int] = [5, 15]) -> pd.DataFrame:
-        """
-        Adds rolling mean and standard deviation features.
-        """
-        df_out = df.copy()
-        
-        for w in window_sizes:
-            for col in self.sensor_cols:
-                # Group by machine_id to prevent leaking across machines
-                roll = df_out.groupby('machine_id')[col].rolling(window=w, min_periods=1)
-                df_out[f'{col}_roll_mean_{w}'] = roll.mean().reset_index(level=0, drop=True)
-                df_out[f'{col}_roll_std_{w}'] = roll.std().reset_index(level=0, drop=True).fillna(0)
-                
-        return df_out
-        
-    def fit_transform(self, df: pd.DataFrame, is_training: bool = True) -> pd.DataFrame:
-        """
-        Fits the scaler and transforms the dataset. Adds engineered features.
-        """
-        df_feat = self.add_rolling_features(df)
-        
-        # Get all feature columns (sensors + rolling)
-        self.feature_cols = [c for c in df_feat.columns if c not in ['machine_id', 'cycle', 'RUL', 'failure_imminent', 'failure_type']]
-        
-        if is_training:
-            df_feat[self.feature_cols] = self.scaler.fit_transform(df_feat[self.feature_cols])
-        else:
-            df_feat[self.feature_cols] = self.scaler.transform(df_feat[self.feature_cols])
-            
-        return df_feat
-        
-    def create_sequences(self, df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """
-        Converts the dataframe into 3D sequences (samples, sequence_length, features) 
-        for models like LSTM/Transformers.
-        Returns: X (sequences), y_rul (Remaining Useful Life), y_class (failure_imminent)
-        """
-        sequence_cols = self.feature_cols
-        
-        seqs = []
-        labels_rul = []
-        labels_class = []
-        
-        for machine_id in df['machine_id'].unique():
-            machine_data = df[df['machine_id'] == machine_id]
-            
-            data_matrix = machine_data[sequence_cols].values
-            rul_matrix = machine_data['RUL'].values
-            class_matrix = machine_data['failure_imminent'].values
-            
-            # We can only create sequences if the machine has enough cycles
-            for i in range(len(data_matrix) - self.sequence_length + 1):
-                seqs.append(data_matrix[i:i+self.sequence_length])
-                
-                # The label is the target at the LAST time step of the sequence
-                labels_rul.append(rul_matrix[i+self.sequence_length-1])
-                labels_class.append(class_matrix[i+self.sequence_length-1])
-                
-        return np.array(seqs), np.array(labels_rul), np.array(labels_class)
-        
-    def save(self, filepath: str):
-        """Saves the fitted preprocessor (scaler)"""
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        joblib.dump(self, filepath)
-        
-    @classmethod
-    def load(cls, filepath: str) -> 'PredictiveMaintenancePreprocessor':
-        """Loads a fitted preprocessor"""
-        return joblib.load(filepath)
+from ml.data.cmapss import SENSORS
 
-if __name__ == "__main__":
-    # Test the preprocessor
-    train_path = "datasets/train_data.csv"
-    if os.path.exists(train_path):
-        print("Testing preprocessing pipeline...")
-        df_train = pd.read_csv(train_path)
-        preprocessor = PredictiveMaintenancePreprocessor(sequence_length=15)
-        
-        df_train_feat = preprocessor.fit_transform(df_train, is_training=True)
-        print(f"Engineered features: {len(preprocessor.feature_cols)}")
-        
-        X_seq, y_rul, y_class = preprocessor.create_sequences(df_train_feat)
-        print(f"Created sequences: {X_seq.shape}")
-        
-        preprocessor.save("models/preprocessor.pkl")
-        print("Saved preprocessor to models/preprocessor.pkl")
-    else:
-        print(f"{train_path} not found. Run generate_dataset.py first.")
+WINDOWS = [5, 15]
+MIN_HISTORY = max(WINDOWS)
+FEATURE_COLS: List[str] = (
+    ["cycle"] + SENSORS
+    + [f"{s}_roll_{stat}_{w}" for w in WINDOWS for s in SENSORS for stat in ("mean", "std")]
+)
+
+
+def build_features(df: pd.DataFrame, full_history_only: bool = True) -> pd.DataFrame:
+    """Adds rolling features per engine. Rows must be ordered by cycle within each
+    engine. With full_history_only, rows with fewer than MIN_HISTORY cycles of
+    history are dropped (their windows would be incomplete)."""
+    df = df.sort_values(["engine_id", "cycle"]).reset_index(drop=True)
+    grouped = df.groupby("engine_id", sort=False)
+    new = {}
+    for w in WINDOWS:
+        rolling = grouped[SENSORS].rolling(window=w, min_periods=w)
+        means = rolling.mean().reset_index(level=0, drop=True)
+        stds = rolling.std().reset_index(level=0, drop=True)
+        for s in SENSORS:
+            new[f"{s}_roll_mean_{w}"] = means[s]
+            new[f"{s}_roll_std_{w}"] = stds[s]
+    out = pd.concat([df, pd.DataFrame(new, index=df.index)], axis=1)
+    if full_history_only:
+        out = out[grouped.cumcount() + 1 >= MIN_HISTORY]
+    return out
+
+
+def latest_features(readings: pd.DataFrame) -> pd.DataFrame:
+    """Feature row for the most recent reading of one engine's history (what the
+    API predicts from). Requires at least MIN_HISTORY readings."""
+    if len(readings) < MIN_HISTORY:
+        raise ValueError(f"At least {MIN_HISTORY} consecutive readings are required, got {len(readings)}.")
+    featured = build_features(readings.assign(engine_id=0), full_history_only=True)
+    return featured[FEATURE_COLS].tail(1)

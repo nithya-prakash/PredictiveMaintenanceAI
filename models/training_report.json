@@ -1,0 +1,64 @@
+{
+  "rul": {
+    "candidates": {
+      "LinearRegression": {
+        "cv_rmse": 19.220421812322282,
+        "params": {}
+      },
+      "RandomForestRegressor": {
+        "cv_rmse": 16.926082275234954,
+        "params": {
+          "n_estimators": 100,
+          "max_depth": 12,
+          "min_samples_leaf": 24,
+          "max_features": 0.3
+        }
+      },
+      "HistGradientBoostingRegressor": {
+        "cv_rmse": 17.050169696487806,
+        "params": {
+          "learning_rate": 0.07824283257099392,
+          "max_leaf_nodes": 9,
+          "min_samples_leaf": 53,
+          "l2_regularization": 0.0032476735706274485
+        }
+      }
+    },
+    "selected": "RandomForestRegressor"
+  },
+  "failure": {
+    "candidates": {
+      "LogisticRegression": {
+        "cv_pr_auc": 0.9664422638498738,
+        "params": {
+          "C": 0.8471801418819978
+        }
+      },
+      "HistGradientBoostingClassifier": {
+        "cv_pr_auc": 0.957868648130133,
+        "params": {
+          "learning_rate": 0.07937586660888747,
+          "max_leaf_nodes": 14,
+          "min_samples_leaf": 21
+        }
+      }
+    },
+    "selected": "LogisticRegression",
+    "threshold": 0.8,
+    "threshold_cv_f1": 0.8941968579672972
+  },
+  "anomaly": {
+    "trained_on_rows": 6654,
+    "score_threshold": -0.5167310513768278,
+    "definition": "score below the 1st percentile of healthy (RUL > 125) training cycles"
+  },
+  "metadata": {
+    "trained_at": "2026-09-27T11:32:43.752152+00:00",
+    "dataset": "NASA C-MAPSS FD001 (training engines only)",
+    "dataset_sha256": "c9c5dec12a945a82e8bb4446589d7fb3cc057b5e5d81fa1a12e25ee9912ad3b2",
+    "training_rows": 19231,
+    "training_engines": 100,
+    "sklearn_version": "1.9.1",
+    "selection": "engine-wise GroupKFold on training engines; official test set untouched"
+  }
+}

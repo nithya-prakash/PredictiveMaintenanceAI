@@ -1,49 +1,65 @@
-# ML Evaluation & Benchmarking Final Report
+# Evaluation report: NASA C-MAPSS FD001
 
-## 1. Executive Summary
-This report evaluates the Predictive Maintenance AI platform following strict integrity rules. 
+Test set: NASA's official FD001 test set, 100 engines. All model choices (algorithm, hyperparameters, decision threshold) were made with engine-wise cross-validation on the training engines; the test engines were used only for this report.
 
-## 2. Dataset Audit & Leakage
-- **Split Strategy**: Machine-wise holdout (Machines 1-120 Train, 121-150 Test).
-- **Preprocessing Leakage Check**: StandardScaler and Threshold Tuning strictly fitted on training/validation subsets.
+## Remaining useful life (official protocol: last cycle of each test engine, RUL capped at 125)
 
-## 3. Classification Results (30-Cycle Imminent Failure)
-Threshold 0.8000000000000003 selected via validation set tuning.
-
-| Model | ROC-AUC | PR-AUC | F1 | Precision | Recall | Brier Score |
-|---|---|---|---|---|---|---|
-| **Random Forest** | 0.999 | 0.991 | 0.947 | 0.954 | 0.940 | 0.014 |
-| **Logistic Regression** | 1.000 | 0.997 | 0.967 | 0.973 | 0.961 | 0.008 |
-| **Majority Baseline** | 0.500 | 0.132 | 0.000 | 0.000 | 0.000 | 0.132 |
-
-**Deployed model: `LogisticRegression`** (PR-AUC 0.997) — `ml/training/train_classifier.py` benchmarks both candidates above and deploys whichever wins on PR-AUC rather than always deploying RandomForest.
-
-### Error Analysis (False Negatives)
-- Missed Failures: 56
-- Mean Probability assigned to missed failures: 0.618
-
-## 4. Remaining Useful Life (RUL) Results
-| Model | RMSE | MAE | Median AE | R² |
+| Model | RMSE | MAE | NASA score | CV RMSE (train) |
 |---|---|---|---|---|
-| **Random Forest** | 9.72 | 6.89 | 4.81 | 0.981 |
-| **Linear Regression** | 15.77 | 12.74 | 11.72 | 0.951 |
-| **Mean Baseline** | 71.30 | 60.84 | 58.75 | -0.004 |
+| LinearRegression | 19.31 | 14.91 | 718 | 19.22 |
+| RandomForestRegressor (deployed) | 17.19 | 12.22 | 573 | 16.93 |
+| HistGradientBoostingRegressor | 17.35 | 12.44 | 580 | 17.05 |
+| Mean baseline | 41.21 | 34.85 | 25451 | – |
 
-### RUL Error by Range
-- Low RUL (<=30 cycles) RMSE: 3.06
-- Medium RUL (31-100 cycles) RMSE: 5.44
-- High RUL (>100 cycles) RMSE: 12.18
+Published FD001 results under the same capped-RUL protocol, for context (Ragab et al. 2020, Table III, arXiv:2007.09868):
 
-## 5. Cross-Validation & Robustness (GroupKFold)
-- **ROC-AUC**: 0.998 ± 0.000
-- **PR-AUC**: 0.990 ± 0.002
-- **Temporal Split**: The synthetic dataset generates machines independently without a global timestamp column tracking chronological factory deployment. Hence, chronological TimeSeriesSplit across machines is not physically meaningful for this specific synthetic generation logic.
+| Published method | RMSE | NASA score |
+|---|---|---|
+| Random Forest | 17.91 | 480 |
+| Gradient Boosting | 15.67 | 474 |
+| 1D CNN (Li et al.) | 12.61 | 274 |
+| Deep LSTM | 16.14 | 338 |
+| ATS2S (Ragab et al.) | 12.63 | 243 |
 
-## 6. Inference Latency (Full Pipeline)
-Local execution, 100 sequential requests, 10 warmup calls. Simulates preprocessing + scaling + inference overhead.
-- Mean: 16.71 ms
-- p99: 21.26 ms
+RMSE of the deployed model over all test cycles, by true RUL: true RUL <= 30: 18.4, 31-60: 25.2, 61-125: 17.3, > 125: 14.3
 
-## 7. SHAP Explainability
-- **Top 5 Features**: vibration_roll_mean_15, current_roll_mean_15, temperature_roll_mean_15, oil_quality_roll_std_5, voltage_roll_mean_15
-- **Note**: Quantitative SHAP evaluation (e.g. fidelity/stability metrics) requires specialized perturbation testing which is beyond the current scope. These represent global feature attribution magnitudes on a test sample.
+## Imminent failure (true RUL <= 30 cycles), all test cycles with 15+ cycles of history
+
+332 positive and 11364 negative cycles, from 25 engines that come within 30 cycles of failure. Consecutive cycles of one engine are correlated, so treat these as 100 engines' worth of evidence, not 11696 independent samples.
+
+| Model | PR-AUC | ROC-AUC | Threshold | Precision | Recall | F1 | Brier |
+|---|---|---|---|---|---|---|---|
+| LogisticRegression (deployed) | 0.842 | 0.994 | 0.80 | 0.770 | 0.717 | 0.743 | 0.013 |
+| HistGradientBoostingClassifier | 0.820 | 0.991 | 0.50 | 0.665 | 0.777 | 0.717 | 0.013 |
+| Prior baseline | 0.028 | 0.500 | 0.50 | 0.000 | 0.000 | 0.000 | 0.045 |
+
+The deployed threshold (0.80) was chosen on out-of-fold training predictions and is exactly the one the API uses.
+
+## Anomaly flag rate by true RUL (should rise towards failure)
+
+| True RUL | Cycles | Flagged |
+|---|---|---|
+| true RUL <= 30 | 332 | 99.1% |
+| 31-60 | 908 | 55.5% |
+| 61-125 | 3904 | 8.4% |
+| > 125 | 6552 | 1.2% |
+
+## SHAP: most influential features for the failure model (mean |SHAP| on 300 test cycles)
+
+- `s11_roll_mean_5`: 2.759
+- `s14_roll_mean_15`: 2.206
+- `s4_roll_mean_15`: 1.856
+- `s17_roll_mean_15`: 1.824
+- `s12_roll_mean_5`: 1.745
+- `s8_roll_mean_5`: 1.696
+- `s4_roll_mean_5`: 1.616
+- `s20_roll_mean_15`: 1.596
+
+## Latency
+
+200 sequential requests, 30 readings each, FastAPI TestClient (full HTTP stack in-process, no network), after 10 warm-up calls; laptop CPU. Not a production load test.
+
+- `/api/v1/predict-failure`: p50 10.4 ms, p95 11.8 ms, p99 13.1 ms
+- `/api/v1/explain`: p50 10.5 ms, p95 11.7 ms, p99 14.6 ms
+
+Model bundle trained 2026-09-27T11:32:43 UTC on NASA C-MAPSS FD001 (training engines only).

@@ -1,0 +1,142 @@
+{
+  "dataset": {
+    "test_engines": 100,
+    "test_rows_with_full_history": 11696,
+    "note": "Each test engine's trajectory stops before failure; NASA gives the true RUL at its last cycle."
+  },
+  "rul": {
+    "selected": "RandomForestRegressor",
+    "models": {
+      "LinearRegression": {
+        "rmse": 19.305340113777344,
+        "mae": 14.908321313757899,
+        "nasa_score": 717.7759862215909,
+        "rmse_vs_uncapped_truth": 20.36297422203363,
+        "cv_rmse": 19.220421812322282
+      },
+      "RandomForestRegressor": {
+        "rmse": 17.188777635349915,
+        "mae": 12.220214336412063,
+        "nasa_score": 572.9251599180832,
+        "rmse_vs_uncapped_truth": 18.380008356399333,
+        "cv_rmse": 16.926082275234954
+      },
+      "HistGradientBoostingRegressor": {
+        "rmse": 17.345830578732432,
+        "mae": 12.44001001262366,
+        "nasa_score": 580.249470124339,
+        "rmse_vs_uncapped_truth": 18.511387209054064,
+        "cv_rmse": 17.050169696487806
+      },
+      "Mean baseline": {
+        "rmse": 41.2082373464051,
+        "mae": 34.84890489314128,
+        "nasa_score": 25451.207190130845,
+        "rmse_vs_uncapped_truth": 42.423008483177775
+      }
+    },
+    "rmse_by_true_rul_all_cycles": {
+      "true RUL <= 30": 18.370762016800978,
+      "31-60": 25.226666458744003,
+      "61-125": 17.30131603306771,
+      "> 125": 14.297036473805385
+    }
+  },
+  "failure": {
+    "selected": "LogisticRegression",
+    "served_threshold": 0.8,
+    "models": {
+      "LogisticRegression": {
+        "pr_auc": 0.8417169948847822,
+        "roc_auc": 0.9936636726419936,
+        "threshold": 0.8,
+        "precision": 0.7702265372168284,
+        "recall": 0.7168674698795181,
+        "f1": 0.7425897035881436,
+        "brier": 0.012941505986328808,
+        "confusion": {
+          "tn": 11293,
+          "fp": 71,
+          "fn": 94,
+          "tp": 238
+        },
+        "cv_pr_auc": 0.9664422638498738
+      },
+      "HistGradientBoostingClassifier": {
+        "pr_auc": 0.8195552361762294,
+        "roc_auc": 0.9914838869734482,
+        "threshold": 0.5,
+        "precision": 0.6649484536082474,
+        "recall": 0.7771084337349398,
+        "f1": 0.7166666666666667,
+        "brier": 0.01270035342866854,
+        "confusion": {
+          "tn": 11234,
+          "fp": 130,
+          "fn": 74,
+          "tp": 258
+        },
+        "cv_pr_auc": 0.957868648130133
+      },
+      "Prior baseline": {
+        "pr_auc": 0.02838577291381669,
+        "roc_auc": 0.5,
+        "threshold": 0.5,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "brier": 0.045219125904628156,
+        "confusion": {
+          "tn": 11364,
+          "fp": 0,
+          "fn": 332,
+          "tp": 0
+        }
+      }
+    },
+    "positives": 332,
+    "negatives": 11364,
+    "engines_with_positive_cycles": 25
+  },
+  "anomaly": {
+    "true RUL <= 30": {
+      "flag_rate": 0.9909638554216867,
+      "cycles": 332
+    },
+    "31-60": {
+      "flag_rate": 0.5550660792951542,
+      "cycles": 908
+    },
+    "61-125": {
+      "flag_rate": 0.08427254098360656,
+      "cycles": 3904
+    },
+    "> 125": {
+      "flag_rate": 0.012362637362637362,
+      "cycles": 6552
+    }
+  },
+  "shap_top_features": {
+    "s11_roll_mean_5": 2.758567443937136,
+    "s14_roll_mean_15": 2.205916063281083,
+    "s4_roll_mean_15": 1.8556941303590235,
+    "s17_roll_mean_15": 1.8236432376411764,
+    "s12_roll_mean_5": 1.744891131570818,
+    "s8_roll_mean_5": 1.696077732464556,
+    "s4_roll_mean_5": 1.6162173975342393,
+    "s20_roll_mean_15": 1.5960869645837497
+  },
+  "latency": {
+    "context": "200 sequential requests, 30 readings each, FastAPI TestClient (full HTTP stack in-process, no network), after 10 warm-up calls; laptop CPU. Not a production load test.",
+    "/api/v1/predict-failure": {
+      "p50_ms": 10.363895499949649,
+      "p95_ms": 11.779750350274298,
+      "p99_ms": 13.121582670105449
+    },
+    "/api/v1/explain": {
+      "p50_ms": 10.533979000001636,
+      "p95_ms": 11.742325299974254,
+      "p99_ms": 14.629494760033577
+    }
+  }
+}
