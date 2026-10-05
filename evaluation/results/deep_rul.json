@@ -1,0 +1,10 @@
+{
+  "model": "1D-CNN (30-cycle windows)",
+  "protocol": "FD001 official test engines, last cycle, capped RUL",
+  "rmse": 14.324298858642578,
+  "mae": 10.725759506225586,
+  "nasa_score": 407.122857594958,
+  "val_rmse": 14.258644104003906,
+  "epochs_run": 27,
+  "val_engines": 20
+}
