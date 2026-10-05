@@ -24,6 +24,7 @@ from sklearn.preprocessing import StandardScaler
 
 from ml.data.cmapss import DEFAULT_DIR, RUL_CAP, SENSORS, download, load_test, load_train
 from ml.features.preprocessing import FEATURE_COLS, build_features
+from ml.training.intervals import coverage
 from ml.training.train import BUNDLE_PATH, SEED
 
 RESULTS = Path("evaluation/results")
@@ -98,6 +99,13 @@ def evaluate():
     all_pred = bundle["rul"]["model"].predict(X_te)
     buckets = {"true RUL <= 30": test["rul"] <= 30, "31-60": (test["rul"] > 30) & (test["rul"] <= 60),
                "61-125": (test["rul"] > 60) & (test["rul"] <= RUL_CAP), "> 125": test["rul"] > RUL_CAP}
+    iv = bundle["rul"].get("interval")
+    if iv:
+        hw, cap = iv["halfwidth"], bundle["rul"]["cap"]
+        last_pred = bundle["rul"]["model"].predict(X_te.loc[last.index])
+        rul["interval"] = {"nominal": 1 - iv["alpha"], "halfwidth": hw,
+                           "coverage_last_cycle": coverage(y_last_capped, last_pred, hw, cap),
+                           "coverage_all_cycles": coverage(test["rul_capped"], all_pred, hw, cap)}
     rul["rmse_by_true_rul_all_cycles"] = {k: rmse(test["rul_capped"][m], all_pred[m.to_numpy()]) for k, m in buckets.items()}
     results["rul"] = rul
 
@@ -177,6 +185,10 @@ def render(r, bundle):
     lines += [f"| {n} | {a:.2f} | {b} |" for n, a, b in PUBLISHED_FD001]
     lines += ["", "RMSE of the deployed model over all test cycles, by true RUL: " +
               ", ".join(f"{k}: {v:.1f}" for k, v in rul["rmse_by_true_rul_all_cycles"].items()), "",
+              *([f"Conformal {rul['interval']['nominal']:.0%} interval (+/-{rul['interval']['halfwidth']:.1f} cycles, from "
+                 f"training-engine out-of-fold residuals). Empirical test coverage: "
+                 f"{rul['interval']['coverage_last_cycle']:.0%} at each engine's last cycle, "
+                 f"{rul['interval']['coverage_all_cycles']:.0%} over all test cycles.", ""] if "interval" in rul else []),
               "## Imminent failure (true RUL <= 30 cycles), all test cycles with 15+ cycles of history", "",
               f"{fail['positives']} positive and {fail['negatives']} negative cycles, from "
               f"{fail['engines_with_positive_cycles']} engines that come within 30 cycles of failure. Consecutive "

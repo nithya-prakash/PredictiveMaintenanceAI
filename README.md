@@ -37,6 +37,24 @@ The deployed threshold (0.80) was chosen on out-of-fold training predictions and
 
 **Latency**: p99 about 13 ms for `/predict-failure` and 15 ms for `/explain` (200 sequential requests with 30 readings each, full HTTP stack in-process on a laptop; not a production load test).
 
+### Prediction intervals
+
+`/api/v1/predict-rul` also returns `rul_lower`, `rul_upper` and `interval_confidence`: a 90% split-conformal interval (±31.2 cycles, clipped to [0, 125]) built from engine-wise out-of-fold residuals on the training engines only. On NASA's official test engines it covers the true capped RUL 91% of the time (at each engine's last cycle and across all test cycles). Engines are not independent cycles, so this coverage is measured, not guaranteed. Retraining (`python -m ml.training.train`) produces the interval; `python -m ml.training.add_intervals` adds it to an existing bundle without retraining.
+
+### Deep-learning benchmark (optional)
+
+`ml/deep/cnn_rul.py` trains a 1D-CNN on 30-cycle sensor windows (`pip install -r requirements-deep.txt`; torch is not in the API image). Early stopping uses 20 held-out *training* engines; the official test engines are scored once. On FD001 test engines (last cycle, capped RUL): **RMSE 14.32, NASA score 407**, versus 17.19 / 573 for the deployed random forest and 16.14 / 338 for the published LSTM (same protocol). Validation RMSE was 14.26, so the gain is not an overfit. Two configurations were tried (a small CNN: 17.65 / 840, then the deeper one reported here), chosen on validation RMSE. It is a benchmark only; the API still serves the random forest, and the results are in `evaluation/results/deep_rul.json`. 
+**All four C-MAPSS subsets** (`python -m ml.deep.subsets`, results in `evaluation/results/deep_rul_subsets.json`). FD002 and FD004 have six operating conditions, so every sensor is standardised per condition (k-means on the operating settings, fit on training engines only). Same protocol: early stopping on held-out training engines, official test engines scored once at each engine's last cycle.
+
+| Subset | Conditions | Test RMSE | NASA score | Validation RMSE |
+|---|---|---|---|---|
+| FD001 | 1 | 15.97 | 479 | 16.24 |
+| FD002 | 6 | 15.61 | 1067 | 17.85 |
+| FD003 | 1 | 14.77 | 805 | 12.61 |
+| FD004 | 6 | 16.81 | 1816 | 18.25 |
+
+Caveats: each subset is a single training run with one seed and no per-subset tuning, and results move noticeably between runs. This run's FD001 RMSE (15.97) is worse than the 14.32 above, which comes from the standalone script on the same protocol, so differences of roughly 1-2 RMSE are within run-to-run noise. Treat these as indicative, not a ranking. FD002/FD004 NASA scores are high partly because those subsets have about 2.5x more test engines (259 and 248, against 100 for FD001) and the score sums over engines. The API still serves only the FD001 random forest.
+
 ## How it works
 
 1. **Data** (`ml/data/cmapss.py`): downloads NASA's archive and verifies its SHA-256 checksum. FD001 has 100 training engines run until failure and 100 test engines stopped before failure, with the true RUL given for their last cycle. The 7 sensors that are constant in FD001 are dropped (14 remain), as is standard.

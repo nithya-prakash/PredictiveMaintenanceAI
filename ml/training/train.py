@@ -27,6 +27,7 @@ from sklearn.preprocessing import StandardScaler
 
 from ml.data.cmapss import DATA_SHA256, DEFAULT_DIR, RUL_CAP, FAILURE_WINDOW, download, load_train
 from ml.features.preprocessing import FEATURE_COLS, MIN_HISTORY, build_features
+from ml.training.intervals import DEFAULT_ALPHA, conformal_halfwidth
 
 BUNDLE_PATH = Path("models/model_bundle.joblib")
 N_FOLDS = 5
@@ -94,7 +95,13 @@ def train(n_trials: int = 8, data_dir: Path = DEFAULT_DIR):
         print(f"[RUL] {name}: engine-wise CV RMSE {cv_rmse:.2f}")
     rul_best = min(rul_results, key=lambda k: rul_results[k]["cv_rmse"])
     rul_model = rul_candidates[rul_best][0](rul_results[rul_best]["params"]).fit(X, y_rul)
-    report["rul"] = {"candidates": rul_results, "selected": rul_best}
+    # Split-conformal interval from engine-wise out-of-fold residuals of the selected model.
+    rul_make, rul_params = rul_candidates[rul_best][0], rul_results[rul_best]["params"]
+    oof_rul = cv_predict(rul_make(rul_params), X, y_rul, groups)
+    interval = {"alpha": DEFAULT_ALPHA, "halfwidth": conformal_halfwidth(y_rul - oof_rul, DEFAULT_ALPHA),
+                "method": "split conformal, engine-wise out-of-fold |residual|"}
+    print(f"[RUL] {1 - DEFAULT_ALPHA:.0%} conformal half-width: +/-{interval['halfwidth']:.1f} cycles")
+    report["rul"] = {"candidates": rul_results, "selected": rul_best, "interval": interval}
 
     # ---------------- Imminent-failure classification ----------------
     clf_candidates = {
@@ -141,7 +148,7 @@ def train(n_trials: int = 8, data_dir: Path = DEFAULT_DIR):
     bundle = {
         "feature_cols": FEATURE_COLS,
         "min_history": MIN_HISTORY,
-        "rul": {"model": rul_model, "algorithm": rul_best, "cap": RUL_CAP},
+        "rul": {"model": rul_model, "algorithm": rul_best, "cap": RUL_CAP, "interval": interval},
         "failure": {"model": clf_model, "algorithm": clf_best, "threshold": threshold, "window": FAILURE_WINDOW},
         "anomaly": {"model": iso, "score_threshold": anomaly_threshold},
         # Plain float array (not a DataFrame), so loading the bundle needs no
