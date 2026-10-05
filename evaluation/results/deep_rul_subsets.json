@@ -1,0 +1,54 @@
+{
+  "model": "1D-CNN (30-cycle windows), per-condition sensor standardisation",
+  "protocol": "official test engines, last cycle, RUL capped at 125",
+  "results": [
+    {
+      "subset": "FD001",
+      "operating_conditions": 1,
+      "train_engines": 100,
+      "test_engines": 100,
+      "rmse": 15.965295791625977,
+      "mae": 11.57213020324707,
+      "nasa_score": 478.95916587662316,
+      "val_rmse": 16.238414764404297,
+      "epochs_run": 30,
+      "val_engines": 20
+    },
+    {
+      "subset": "FD002",
+      "operating_conditions": 6,
+      "train_engines": 260,
+      "test_engines": 259,
+      "rmse": 15.614764213562012,
+      "mae": 11.694307327270508,
+      "nasa_score": 1067.055563586034,
+      "val_rmse": 17.8481388092041,
+      "epochs_run": 21,
+      "val_engines": 20
+    },
+    {
+      "subset": "FD003",
+      "operating_conditions": 1,
+      "train_engines": 100,
+      "test_engines": 100,
+      "rmse": 14.772729873657227,
+      "mae": 10.109770774841309,
+      "nasa_score": 804.9758269082633,
+      "val_rmse": 12.61130142211914,
+      "epochs_run": 30,
+      "val_engines": 20
+    },
+    {
+      "subset": "FD004",
+      "operating_conditions": 6,
+      "train_engines": 249,
+      "test_engines": 248,
+      "rmse": 16.8078670501709,
+      "mae": 11.929272651672363,
+      "nasa_score": 1816.2616578459017,
+      "val_rmse": 18.247692108154297,
+      "epochs_run": 23,
+      "val_engines": 20
+    }
+  ]
+}

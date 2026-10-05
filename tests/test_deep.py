@@ -43,3 +43,48 @@ def test_training_runs_and_stays_within_the_rul_range(fixture_dir):
     pred = _predict(model, X, mean, std)
     assert info["epochs_run"] >= 1 and np.isfinite(info["val_rmse"])
     assert pred.min() >= 0 and pred.max() <= 125
+
+
+def _two_condition_frames():
+    """Two engines on two operating conditions with very different sensor levels."""
+    import pandas as pd
+
+    from ml.deep.subsets import OP_COLS
+
+    rng = np.random.default_rng(0)
+    rows = []
+    for engine_id, level in ((1, 100.0), (2, 500.0)):
+        for cycle in range(1, 41):
+            row = {"engine_id": engine_id, "cycle": cycle, "rul_capped": 0.0,
+                   **{c: float(level) for c in OP_COLS}}
+            row.update({s: level + rng.normal() for s in SENSORS})
+            rows.append(row)
+    df = pd.DataFrame(rows)
+    return df, df.copy()
+
+
+def test_per_condition_normalisation_removes_the_operating_condition_shift():
+    from ml.deep.subsets import normalise_per_condition
+
+    train, test = _two_condition_frames()
+    norm_train, _ = normalise_per_condition(train, test, n_conditions=2)
+    assert norm_train["cond"].nunique() == 2
+    for _, g in norm_train.groupby("cond"):
+        assert np.allclose(g[SENSORS].mean(), 0, atol=1e-6)
+        assert np.allclose(g[SENSORS].std(ddof=1), 1, atol=1e-3)
+
+
+def test_single_condition_is_plain_standardisation():
+    from ml.deep.subsets import normalise_per_condition
+
+    train, test = _two_condition_frames()
+    norm_train, _ = normalise_per_condition(train, test, n_conditions=1)
+    assert (norm_train["cond"] == 0).all()
+    assert np.allclose(norm_train[SENSORS].mean(), 0, atol=1e-6)
+
+
+def test_subset_runner_end_to_end_on_the_fixture(fixture_dir):
+    from ml.deep.subsets import run_subset
+
+    result = run_subset(fixture_dir, "FD001", 1, epochs=1, patience=1)
+    assert result["test_engines"] == 3 and np.isfinite(result["rmse"]) and result["nasa_score"] >= 0
