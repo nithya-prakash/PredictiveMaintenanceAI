@@ -7,6 +7,7 @@ import pandas as pd
 from backend.core.config import settings
 from ml.data.cmapss import SENSORS
 from ml.features.preprocessing import latest_features
+from ml.training.intervals import interval_bounds
 
 log = logging.getLogger(__name__)
 
@@ -43,6 +44,14 @@ class PredictorService:
 
     def predict_rul(self, X) -> float:
         return float(max(0.0, self.bundle["rul"]["model"].predict(X)[0]))
+
+    def rul_interval(self, rul: float) -> Optional[dict]:
+        """Conformal interval around a RUL prediction, or None for older bundles without one."""
+        cfg = self.bundle["rul"].get("interval")
+        if not cfg:
+            return None
+        lo, hi = interval_bounds(rul, cfg["halfwidth"], self.bundle["rul"]["cap"])
+        return {"lower": lo, "upper": hi, "confidence": 1 - cfg["alpha"]}
 
     def failure_probability(self, X) -> float:
         return float(self.bundle["failure"]["model"].predict_proba(X)[0, 1])

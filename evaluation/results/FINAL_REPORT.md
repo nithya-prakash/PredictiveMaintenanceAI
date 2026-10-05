@@ -23,6 +23,8 @@ Published FD001 results under the same capped-RUL protocol, for context (Ragab e
 
 RMSE of the deployed model over all test cycles, by true RUL: true RUL <= 30: 18.4, 31-60: 25.2, 61-125: 17.3, > 125: 14.3
 
+Conformal 90% interval (+/-31.2 cycles, from training-engine out-of-fold residuals). Empirical test coverage: 91% at each engine's last cycle, 91% over all test cycles.
+
 ## Imminent failure (true RUL <= 30 cycles), all test cycles with 15+ cycles of history
 
 332 positive and 11364 negative cycles, from 25 engines that come within 30 cycles of failure. Consecutive cycles of one engine are correlated, so treat these as 100 engines' worth of evidence, not 11696 independent samples.
@@ -59,7 +61,7 @@ The deployed threshold (0.80) was chosen on out-of-fold training predictions and
 
 200 sequential requests, 30 readings each, FastAPI TestClient (full HTTP stack in-process, no network), after 10 warm-up calls; laptop CPU. Not a production load test.
 
-- `/api/v1/predict-failure`: p50 10.4 ms, p95 11.8 ms, p99 13.1 ms
-- `/api/v1/explain`: p50 10.5 ms, p95 11.7 ms, p99 14.6 ms
+- `/api/v1/predict-failure`: p50 9.1 ms, p95 9.3 ms, p99 10.1 ms
+- `/api/v1/explain`: p50 9.3 ms, p95 12.8 ms, p99 13.8 ms
 
 Model bundle trained 2026-09-27T11:32:43 UTC on NASA C-MAPSS FD001 (training engines only).

@@ -92,3 +92,9 @@ def test_trusted_dashboard_token_bypasses_rate_limit(client, engine, monkeypatch
     assert [client.post("/api/v1/predict-rul", json=payload(engine), headers=ok).status_code for _ in range(3)] == [200] * 3
     wrong = {"X-API-Key": "nope"}
     assert [client.post("/api/v1/predict-rul", json=payload(engine), headers=wrong).status_code for _ in range(2)] == [200, 429]
+
+
+def test_predict_rul_returns_a_conformal_interval(client, engine):
+    r = client.post("/api/v1/predict-rul", json=payload(engine)).json()
+    assert r["interval_confidence"] == pytest.approx(0.9)
+    assert 0.0 <= r["rul_lower"] <= r["predicted_rul"] <= r["rul_upper"] <= r["rul_cap"]

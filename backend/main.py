@@ -92,8 +92,11 @@ def model_info(svc=Depends(models_ready)):
 @app.post(f"{settings.API_V1_STR}/predict-rul", response_model=RULResponse, dependencies=[Depends(rate_limit)])
 def predict_rul(history: EngineHistory, svc=Depends(models_ready)):
     X, cycle = features_for(history, svc)
-    return RULResponse(machine_id=history.machine_id, cycle=cycle, predicted_rul=svc.predict_rul(X),
-                       rul_cap=svc.bundle["rul"]["cap"])
+    rul = svc.predict_rul(X)
+    iv = svc.rul_interval(rul) or {}
+    return RULResponse(machine_id=history.machine_id, cycle=cycle, predicted_rul=rul,
+                       rul_lower=iv.get("lower"), rul_upper=iv.get("upper"),
+                       interval_confidence=iv.get("confidence"), rul_cap=svc.bundle["rul"]["cap"])
 
 
 @app.post(f"{settings.API_V1_STR}/rul-trajectory", dependencies=[Depends(rate_limit)])
