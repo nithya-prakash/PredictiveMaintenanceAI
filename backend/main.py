@@ -17,6 +17,7 @@ from backend.core.database import get_db, init_db
 from backend.models.machine import Machine, Prediction, SensorReading
 from backend.schemas.predict import (AnomalyResponse, EngineHistory, ExplanationResponse, FailureResponse,
                                      MaintenanceRecommendation, RULResponse)
+from backend.services.drift import DriftMonitor
 from backend.services.predictor import predictor_service
 from backend.services.xai import explain_rows
 
@@ -66,7 +67,11 @@ def models_ready():
     return predictor_service
 
 
+drift_monitor = DriftMonitor.from_file(settings.DRIFT_REFERENCE_PATH)
+
+
 def features_for(history: EngineHistory, svc):
+    drift_monitor.observe(history.readings[-1].model_dump())
     return svc.features(history), history.readings[-1].cycle
 
 

@@ -1,0 +1,47 @@
+task,model,metric,value
+RUL,LinearRegression,rmse,19.3053
+RUL,LinearRegression,mae,14.9083
+RUL,LinearRegression,nasa_score,717.776
+RUL,LinearRegression,rmse_vs_uncapped_truth,20.363
+RUL,LinearRegression,cv_rmse,19.2204
+RUL,RandomForestRegressor,rmse,17.1888
+RUL,RandomForestRegressor,mae,12.2202
+RUL,RandomForestRegressor,nasa_score,572.9252
+RUL,RandomForestRegressor,rmse_vs_uncapped_truth,18.38
+RUL,RandomForestRegressor,cv_rmse,16.9261
+RUL,HistGradientBoostingRegressor,rmse,17.3458
+RUL,HistGradientBoostingRegressor,mae,12.44
+RUL,HistGradientBoostingRegressor,nasa_score,580.2495
+RUL,HistGradientBoostingRegressor,rmse_vs_uncapped_truth,18.5114
+RUL,HistGradientBoostingRegressor,cv_rmse,17.0502
+RUL,Mean baseline,rmse,41.2082
+RUL,Mean baseline,mae,34.8489
+RUL,Mean baseline,nasa_score,25451.2072
+RUL,Mean baseline,rmse_vs_uncapped_truth,42.423
+Failure,LogisticRegression,pr_auc,0.8417
+Failure,LogisticRegression,roc_auc,0.9937
+Failure,LogisticRegression,threshold,0.8
+Failure,LogisticRegression,precision,0.7702
+Failure,LogisticRegression,recall,0.7169
+Failure,LogisticRegression,f1,0.7426
+Failure,LogisticRegression,brier,0.0129
+Failure,LogisticRegression,cv_pr_auc,0.9664
+Failure,HistGradientBoostingClassifier,pr_auc,0.8196
+Failure,HistGradientBoostingClassifier,roc_auc,0.9915
+Failure,HistGradientBoostingClassifier,threshold,0.5
+Failure,HistGradientBoostingClassifier,precision,0.6649
+Failure,HistGradientBoostingClassifier,recall,0.7771
+Failure,HistGradientBoostingClassifier,f1,0.7167
+Failure,HistGradientBoostingClassifier,brier,0.0127
+Failure,HistGradientBoostingClassifier,cv_pr_auc,0.9579
+Failure,Prior baseline,pr_auc,0.0284
+Failure,Prior baseline,roc_auc,0.5
+Failure,Prior baseline,threshold,0.5
+Failure,Prior baseline,precision,0.0
+Failure,Prior baseline,recall,0.0
+Failure,Prior baseline,f1,0.0
+Failure,Prior baseline,brier,0.0452
+Anomaly,true RUL <= 30,flag_rate,0.991
+Anomaly,31-60,flag_rate,0.5551
+Anomaly,61-125,flag_rate,0.0843
+Anomaly,> 125,flag_rate,0.0124

@@ -6,13 +6,14 @@ WORKDIR /app
 COPY locks/ locks/
 RUN LOCK="locks/runtime-$(uname -m).txt"; \
     if [ ! -f "$LOCK" ]; then echo "No lockfile $LOCK for this architecture; run scripts/lock.sh" >&2; exit 1; fi; \
-    pip install --no-cache-dir --require-hashes -r "$LOCK"
+    pip install --no-cache-dir --default-timeout=120 --retries 6 --require-hashes -r "$LOCK"
 
 # Code and the trained model bundle only. Secrets come from the environment at
 # runtime (never copied into the image; see .dockerignore).
 COPY backend/ ./backend/
 COPY ml/ ./ml/
 COPY models/model_bundle.joblib ./models/model_bundle.joblib
+COPY models/drift_reference.json ./models/drift_reference.json
 
 ENV PYTHONPATH=/app
 EXPOSE 8000

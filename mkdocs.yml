@@ -19,3 +19,5 @@ nav:
   - Architecture: architecture.md
   - API Reference: api.md
   - Models & XAI: models.md
+  - Details and setup: details.md
+  - Power BI: powerbi.md
