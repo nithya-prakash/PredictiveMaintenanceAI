@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     VERSION: str = "2.0.0"
     API_V1_STR: str = "/api/v1"
     MODEL_PATH: str = "models/model_bundle.joblib"
+    DRIFT_REFERENCE_PATH: str = "models/drift_reference.json"
 
     # Database. There is deliberately no default password: set POSTGRES_PASSWORD
     # in .env (docker compose refuses to start without it). Without a reachable
