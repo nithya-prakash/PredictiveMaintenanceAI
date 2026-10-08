@@ -19,3 +19,5 @@ Every modelling choice was made with engine-wise cross-validation on the trainin
 - [Architecture](architecture.md): services, request flow, security.
 - [API reference](api.md): endpoints and payloads.
 - [Models & evaluation](models.md): data, features, training protocol, full results, limitations.
+- [Details and setup](details.md): full results, setup, security notes.
+- [Power BI](powerbi.md): star-schema export and DAX measures.
