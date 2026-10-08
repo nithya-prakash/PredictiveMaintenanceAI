@@ -8,17 +8,17 @@
     "selected": "RandomForestRegressor",
     "models": {
       "LinearRegression": {
-        "rmse": 19.305340113777344,
-        "mae": 14.908321313757899,
-        "nasa_score": 717.7759862215909,
-        "rmse_vs_uncapped_truth": 20.36297422203363,
+        "rmse": 19.30534011377734,
+        "mae": 14.908321313757915,
+        "nasa_score": 717.7759862215908,
+        "rmse_vs_uncapped_truth": 20.362974222033632,
         "cv_rmse": 19.220421812322282
       },
       "RandomForestRegressor": {
-        "rmse": 17.188777635349915,
-        "mae": 12.220214336412063,
-        "nasa_score": 572.9251599180832,
-        "rmse_vs_uncapped_truth": 18.380008356399333,
+        "rmse": 17.18877763534991,
+        "mae": 12.220214336412061,
+        "nasa_score": 572.9251599180828,
+        "rmse_vs_uncapped_truth": 18.38000835639933,
         "cv_rmse": 16.926082275234954
       },
       "HistGradientBoostingRegressor": {
@@ -35,11 +35,17 @@
         "rmse_vs_uncapped_truth": 42.423008483177775
       }
     },
+    "interval": {
+      "nominal": 0.9,
+      "halfwidth": 31.15384581081932,
+      "coverage_last_cycle": 0.91,
+      "coverage_all_cycles": 0.9113372093023255
+    },
     "rmse_by_true_rul_all_cycles": {
       "true RUL <= 30": 18.370762016800978,
       "31-60": 25.226666458744003,
-      "61-125": 17.30131603306771,
-      "> 125": 14.297036473805385
+      "61-125": 17.301316033067714,
+      "> 125": 14.297036473805386
     }
   },
   "failure": {
@@ -129,14 +135,14 @@
   "latency": {
     "context": "200 sequential requests, 30 readings each, FastAPI TestClient (full HTTP stack in-process, no network), after 10 warm-up calls; laptop CPU. Not a production load test.",
     "/api/v1/predict-failure": {
-      "p50_ms": 10.363895499949649,
-      "p95_ms": 11.779750350274298,
-      "p99_ms": 13.121582670105449
+      "p50_ms": 9.10631299848319,
+      "p95_ms": 9.29095595056424,
+      "p99_ms": 10.142685508399152
     },
     "/api/v1/explain": {
-      "p50_ms": 10.533979000001636,
-      "p95_ms": 11.742325299974254,
-      "p99_ms": 14.629494760033577
+      "p50_ms": 9.31335399945965,
+      "p95_ms": 12.757933301145384,
+      "p99_ms": 13.815923839720197
     }
   }
 }

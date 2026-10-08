@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field, create_model, field_validator
 
@@ -33,6 +33,9 @@ class RULResponse(BaseModel):
     machine_id: int
     cycle: int
     predicted_rul: float
+    rul_lower: Optional[float] = Field(default=None, description="Lower bound of the conformal prediction interval")
+    rul_upper: Optional[float] = Field(default=None, description="Upper bound of the conformal prediction interval")
+    interval_confidence: Optional[float] = Field(default=None, description="Nominal coverage of [rul_lower, rul_upper], from engine-wise out-of-fold residuals")
     rul_cap: int = Field(description="Training labels are capped at this many cycles; predictions near it mean 'healthy, no visible degradation yet'")
 
 
